@@ -72,7 +72,7 @@ const Dashboard = () => {
     <>
       <Header />
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-2 py-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
+        <h1 className="app-header text-2xl font-semibold text-gray-900 mb-6">Dashboard</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           <div className="bg-white p-3 rounded shadow md:col-span-3 lg:col-span-5">

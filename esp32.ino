@@ -234,22 +234,81 @@ void stopMotorManual() {
 void checkManualMotor() {
   // Construct the path to the feedNow value
   String feednowPath = "/BANGUS/" + uid + "/feedNow";
-  if (Firebase.RTDB.getBool(&fbdo, feednowPath.c_str())) {
-    bool feednow = fbdo.boolData();
-
-    // If feedNow is true and manual mode isn't already active, start the motor
-    if (feednow && !manualMotorActive) {
-      startMotorManual();
-      manualMotorActive = true;
-    }
-    // If feedNow is false and manual mode is active, stop the motor
-    else if (!feednow && manualMotorActive) {
-      stopMotorManual();
-      manualMotorActive = false;
+  if (Firebase.RTDB.get(&fbdo, feednowPath.c_str())) {
+    if (fbdo.dataType() == "json") {
+      FirebaseJson json = fbdo.jsonObject();
+      FirebaseJsonData active, lifeStage, population, duration;
+      
+      json.get(active, "active");
+      json.get(lifeStage, "lifeStage");
+      json.get(population, "population");
+      json.get(duration, "duration");
+      
+      bool feedActive = active.boolValue;
+      String currentLifeStage = lifeStage.stringValue;
+      int fishPopulation = population.intValue;
+      int feedDuration = duration.intValue;
+      
+      // If feedNow is true and manual mode isn't already active, start the motor
+      if (feedActive && !manualMotorActive) {
+        // Adjust motor speed based on life stage and population
+        adjustMotorForLifeStage(currentLifeStage, fishPopulation);
+        
+        // Set motor run time based on the duration parameter
+        motorRunTime = feedDuration * 1000; // Convert to milliseconds
+        
+        startMotorManual();
+        manualMotorActive = true;
+      }
+      // If feedNow is false and manual mode is active, stop the motor
+      else if (!feedActive && manualMotorActive) {
+        stopMotorManual();
+        manualMotorActive = false;
+      }
+    } else {
+      // Handle legacy boolean format
+      bool feednow = fbdo.boolData();
+      if (feednow && !manualMotorActive) {
+        startMotorManual();
+        manualMotorActive = true;
+      } else if (!feednow && manualMotorActive) {
+        stopMotorManual();
+        manualMotorActive = false;
+      }
     }
   } else {
     Serial.println("Failed to read feedNow value from Firebase");
   }
+}
+
+void adjustMotorForLifeStage(String lifeStage, int population) {
+  // Base motor speed
+  int baseSpeed = 128; // 50% duty cycle
+  
+  // Adjust speed based on life stage
+  if (lifeStage == "fry") {
+    baseSpeed = 77; // 30% - slower for small feed
+  } else if (lifeStage == "fingerling") {
+    baseSpeed = 102; // 40% - slightly faster
+  } else if (lifeStage == "juvenile") {
+    baseSpeed = 153; // 60% - medium speed
+  } else if (lifeStage == "adult") {
+    baseSpeed = 204; // 80% - faster for larger feed amounts
+  }
+  
+  // Further adjust based on population (optional)
+  // For example, increase speed by 10% for every 100 fish
+  int populationFactor = 1 + (population / 100) * 0.1;
+  
+  // Ensure we don't exceed max speed (255)
+  motorSpeed = min(255, baseSpeed * populationFactor);
+  
+  Serial.print("Adjusted motor speed for life stage: ");
+  Serial.print(lifeStage);
+  Serial.print(", population: ");
+  Serial.print(population);
+  Serial.print(", speed: ");
+  Serial.println(motorSpeed);
 }
 
 /**

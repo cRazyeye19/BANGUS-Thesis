@@ -91,8 +91,8 @@ const SensorsForm = () => {
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">
+    <div className="bg-white shadow-md rounded-xl p-6">
+      <h2 className="text-lg font-medium mb-3 text-gray-900">
         Sensor Parameters
       </h2>
       <form onSubmit={handleSubmit}>
@@ -249,7 +249,7 @@ const SensorsForm = () => {
         <div className="grid grid-cols-1 gap-2">
           <button
             type="submit"
-            className="px-6 py-2 bg-bangus-teal text-white hover:bg-bangus-cyan transition-colors"
+            className="px-6 py-2 bg-bangus-cyan text-white hover:bg-bangus-teal transition-colors"
           >
             <FontAwesomeIcon icon={faFloppyDisk} /> Save Changes
           </button>

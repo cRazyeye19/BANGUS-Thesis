@@ -10,6 +10,10 @@ body {
     font-family: "Boldonse", system-ui;
 }
 
+.app-header {
+    font-family: "Inter", sans-serif;
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -74,26 +78,26 @@ html {
 }
 
 .animate-in {
-  opacity: 1 !important;
-  transform: translate(0, 0) !important;
+    opacity: 1 !important;
+    transform: translate(0, 0) !important;
 }
 
 .animation-delay-100 {
-  animation-delay: 100ms;
+    animation-delay: 100ms;
 }
 
 .animation-delay-200 {
-  animation-delay: 200ms;
+    animation-delay: 200ms;
 }
 
 .animation-delay-300 {
-  animation-delay: 300ms;
+    animation-delay: 300ms;
 }
 
 .animation-delay-500 {
-  animation-delay: 500ms;
+    animation-delay: 500ms;
 }
 
 .animation-delay-700 {
-  animation-delay: 700ms;
+    animation-delay: 700ms;
 }

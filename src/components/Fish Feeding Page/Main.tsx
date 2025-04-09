@@ -14,6 +14,9 @@ const Main = () => {
   const [startTime, setStartTime] = useState("");
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentLifeStage, setCurrentLifeStage] = useState("fingerling");
+  const [fishPopulation, setFishPopulation] = useState(100);
+  const [feedDuration, setFeedDuration] = useState(5);
 
   useEffect(() => {
     const uid = getAuth().currentUser?.uid;
@@ -33,10 +36,21 @@ const Main = () => {
           start: value.start,
         })
       );
-      
+
       // Sort schedules by time
       scheduleList.sort((a, b) => a.start.localeCompare(b.start));
       setSchedules(scheduleList);
+    });
+
+    // Load fish data (life stage, population, feed duration)
+    const fishDataRef = ref(database, `BANGUS/${uid}/fishData`);
+    onValue(fishDataRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (data.lifeStage) setCurrentLifeStage(data.lifeStage);
+        if (data.population) setFishPopulation(data.population);
+        if (data.feedDuration) setFeedDuration(data.feedDuration);
+      }
     });
 
     return () => unsubscribe();
@@ -45,19 +59,31 @@ const Main = () => {
   const triggerFeedNow = async () => {
     const uid = getAuth().currentUser?.uid;
     try {
-      await set(ref(database, `BANGUS/${uid}/feedNow`), true);
-      console.log("Feed now triggered");
+      // Send feed command with life stage parameters
+      await set(ref(database, `BANGUS/${uid}/feedNow`), {
+        active: true,
+        lifeStage: currentLifeStage,
+        population: fishPopulation,
+        duration: feedDuration,
+      });
+
+      console.log("Feed now triggered with life stage:", currentLifeStage);
       toast.success("Feed now triggered successfully!", {
         position: "top-right",
         autoClose: 2000,
         hideProgressBar: true,
       });
-      
-      // Reset feedNow to false after 5 seconds
+
+      // Reset feedNow to false after the specified duration + buffer time
       setTimeout(async () => {
-        await set(ref(database, `BANGUS/${uid}/feedNow`), false);
+        await set(ref(database, `BANGUS/${uid}/feedNow`), {
+          active: false,
+          lifeStage: currentLifeStage,
+          population: fishPopulation,
+          duration: feedDuration,
+        });
         console.log("Feed now reset");
-      }, 5000);
+      }, (feedDuration + 2) * 1000); // Add 2 seconds buffer
     } catch (error) {
       console.log("Error triggering feed now:", error);
       toast.error("An error occurred. Please try again.", {
@@ -73,19 +99,19 @@ const Main = () => {
     const timersRef = ref(database, `BANGUS/${uid}/timers`);
     const snapshot = await get(timersRef);
     const data = snapshot.val() || {};
-    
+
     // Find all existing sequential timer IDs
     const existingIndices = Object.keys(data)
-      .filter(key => key.startsWith('timer') && /^timer\d+$/.test(key))
-      .map(key => parseInt(key.replace('timer', ''), 10))
-      .filter(num => !isNaN(num));
-    
+      .filter((key) => key.startsWith("timer") && /^timer\d+$/.test(key))
+      .map((key) => parseInt(key.replace("timer", ""), 10))
+      .filter((num) => !isNaN(num));
+
     // Find the next available index
     let nextIndex = 0;
     while (existingIndices.includes(nextIndex)) {
       nextIndex++;
     }
-    
+
     return nextIndex;
   };
 
@@ -104,11 +130,11 @@ const Main = () => {
       if (!uid) return;
       const nextIndex = await getNextTimerIndex(uid);
       const timerId = `timer${nextIndex}`;
-      
+
       await set(ref(database, `BANGUS/${uid}/timers/${timerId}`), {
         start: startTime,
       });
-      
+
       console.log("Schedule created with ID:", timerId);
       toast.success("Schedule created successfully!", {
         position: "top-right",
@@ -143,7 +169,7 @@ const Main = () => {
       await set(ref(database, `BANGUS/${uid}/timers/${editingId}`), {
         start: startTime,
       });
-      
+
       console.log("Schedule updated");
       toast.success("Schedule updated successfully!", {
         position: "top-right",
@@ -167,7 +193,7 @@ const Main = () => {
     const uid = getAuth().currentUser?.uid;
     try {
       await remove(ref(database, `BANGUS/${uid}/timers/${id}`));
-      
+
       console.log("Schedule deleted");
       toast.success("Schedule deleted successfully!", {
         position: "top-right",
@@ -205,8 +231,8 @@ const Main = () => {
       <Header />
       <div className="min-h-screen bg-gray-50">
         <main className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl mx-auto">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-8">
+          <div className="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto">
+            <h1 className="app-header text-2xl text-center font-semibold text-gray-900 mb-8">
               Fish Feeding Automation
             </h1>
             <Clock />
@@ -227,10 +253,14 @@ const Main = () => {
                   }}
                   className="px-6 py-2 bg-gray-50 text-gray-500 rounded-full hover:text-bangus-teal transition-colors"
                 >
-                  {editingId ? "Cancel Edit" : showTime ? "Hide Form" : "Add Schedule"}
+                  {editingId
+                    ? "Cancel Edit"
+                    : showTime
+                    ? "Hide Form"
+                    : "Add Schedule"}
                 </button>
               </div>
-              
+
               {showTime && (
                 <div className="flex flex-col mt-2 gap-2 w-full max-w-xs">
                   <div className="flex justify-between items-center">
@@ -256,10 +286,9 @@ const Main = () => {
                   </button>
                 </div>
               )}
-              
-              {/* Schedule List */}
+
               <div className="w-full mt-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-3">
+                <h2 className="app-header text-md font-medium text-gray-900 mb-3">
                   Feeding Schedules
                 </h2>
                 {schedules.length === 0 ? (
@@ -283,10 +312,12 @@ const Main = () => {
                         {schedules.map((schedule) => (
                           <tr key={schedule.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {new Date(`2000-01-01T${schedule.start}`).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
+                              {new Date(
+                                `2000-01-01T${schedule.start}`
+                              ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
                               })}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
