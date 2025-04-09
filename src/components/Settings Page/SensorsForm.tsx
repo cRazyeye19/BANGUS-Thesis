@@ -99,7 +99,7 @@ const SensorsForm = () => {
         <div className="mb-4">
           <label
             htmlFor="tempThreshold"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm text-gray-800 my-2"
           >
             Temperature Thresholds (°C)
           </label>
@@ -129,7 +129,7 @@ const SensorsForm = () => {
         <div className="mb-4">
           <label
             htmlFor="phThreshold"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm text-gray-800 my-2"
           >
             pH Thresholds
           </label>
@@ -142,7 +142,7 @@ const SensorsForm = () => {
               onChange={(e) => setPhNormal(e.target.value)}
               step="0.1"
               placeholder="Minimum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <input
               type="number"
@@ -152,14 +152,14 @@ const SensorsForm = () => {
               onChange={(e) => setPhDanger(e.target.value)}
               step="0.1"
               placeholder="Maximum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
           </div>
         </div>
         <div className="mb-4">
           <label
             htmlFor="turbidityThreshold"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm text-gray-800 my-2"
           >
             Turbidity Thresholds (NTU)
           </label>
@@ -172,7 +172,7 @@ const SensorsForm = () => {
               onChange={(e) => setTurbidityNormal(e.target.value)}
               step="0.1"
               placeholder="Minimum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <input
               type="number"
@@ -189,7 +189,7 @@ const SensorsForm = () => {
         <div className="mb-4">
           <label
             htmlFor="ecThreshold"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm text-gray-800 my-2"
           >
             EC Level Thresholds (μS/cm)
           </label>
@@ -202,7 +202,7 @@ const SensorsForm = () => {
               onChange={(e) => setEcNormal(e.target.value)}
               step="1"
               placeholder="Minimum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <input
               type="number"
@@ -219,7 +219,7 @@ const SensorsForm = () => {
         <div className="mb-4">
           <label
             htmlFor="tdsThreshold"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm text-gray-800 my-2"
           >
             Total Dissolved Solids Thresholds (ppm)
           </label>
@@ -232,7 +232,7 @@ const SensorsForm = () => {
               onChange={(e) => setTdsNormal(e.target.value)}
               step="1"
               placeholder="Minimum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <input
               type="number"
