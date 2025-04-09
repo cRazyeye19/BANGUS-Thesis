@@ -249,7 +249,7 @@ const SensorsForm = () => {
         <div className="grid grid-cols-1 gap-2">
           <button
             type="submit"
-            className="px-6 py-2 bg-bangus-cyan text-white hover:bg-bangus-teal transition-colors"
+            className="px-6 py-2 rounded bg-bangus-cyan text-white hover:bg-bangus-teal transition-colors"
           >
             <FontAwesomeIcon icon={faFloppyDisk} /> Save Changes
           </button>

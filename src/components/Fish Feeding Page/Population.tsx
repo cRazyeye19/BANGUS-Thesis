@@ -12,24 +12,28 @@ const LIFE_STAGES = [
     name: "Fry (0-30 days)",
     feedAmount: "small",
     feedFrequency: "high",
+    recommendedSessions: 6,
   },
   {
     id: "fingerling",
     name: "Fingerling (1-3 months)",
     feedAmount: "medium",
     feedFrequency: "medium-high",
+    recommendedSessions: 4,
   },
   {
     id: "juvenile",
     name: "Juvenile (3-5 months)",
     feedAmount: "medium-large",
     feedFrequency: "medium",
+    recommendedSessions: 3,
   },
   {
     id: "adult",
     name: "Adult (5+ months)",
     feedAmount: "large",
     feedFrequency: "medium-low",
+    recommendedSessions: 2,
   },
 ];
 
@@ -37,9 +41,11 @@ const Population = () => {
   const [currentLifeStage, setCurrentLifeStage] = useState("fingerling");
   const [fishPopulation, setFishPopulation] = useState(100);
   const [feedDuration, setFeedDuration] = useState(5);
+  const [feedingSessions, setFeedingSessions] = useState(4);
   const feedDurationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lifeStageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const populationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const feedingSessionsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const uid = getAuth().currentUser?.uid;
@@ -52,6 +58,11 @@ const Population = () => {
         if (data.lifeStage) setCurrentLifeStage(data.lifeStage);
         if (data.population) setFishPopulation(data.population);
         if (data.feedDuration) setFeedDuration(data.feedDuration);
+      } else {
+        const stage = LIFE_STAGES.find(
+          (s) => s.id === (data.lifeStage || currentLifeStage)
+        );
+        if (stage) setFeedingSessions(stage.recommendedSessions);
       }
     });
 
@@ -60,16 +71,29 @@ const Population = () => {
 
   const updateLifeStage = async (stage: string) => {
     setCurrentLifeStage(stage);
-    
+
+    const stageData = LIFE_STAGES.find((s) => s.id === stage);
+    if (stageData) {
+      setFeedingSessions(stageData.recommendedSessions);
+    }
+
     if (lifeStageTimeoutRef.current) {
       clearTimeout(lifeStageTimeoutRef.current);
     }
-    
+
     lifeStageTimeoutRef.current = setTimeout(async () => {
       const uid = getAuth().currentUser?.uid;
       if (!uid) return;
-      
+
       try {
+        const updates: { [key: string]: any } = {
+          lifeStage: stage,
+        };
+
+        if (stageData) {
+          updates.feedingSessions = stageData.recommendedSessions;
+        }
+
         await set(ref(database, `BANGUS/${uid}/fishData/lifeStage`), stage);
         toast.success("Life stage updated successfully!", {
           position: "top-right",
@@ -89,17 +113,20 @@ const Population = () => {
 
   const updatePopulation = async (population: number) => {
     setFishPopulation(population);
-    
+
     if (populationTimeoutRef.current) {
       clearTimeout(populationTimeoutRef.current);
     }
-    
+
     populationTimeoutRef.current = setTimeout(async () => {
       const uid = getAuth().currentUser?.uid;
       if (!uid) return;
-      
+
       try {
-        await set(ref(database, `BANGUS/${uid}/fishData/population`), population);
+        await set(
+          ref(database, `BANGUS/${uid}/fishData/population`),
+          population
+        );
         toast.success("Population updated successfully!", {
           position: "top-right",
           autoClose: 2000,
@@ -118,17 +145,20 @@ const Population = () => {
 
   const updateFeedDuration = async (duration: number) => {
     setFeedDuration(duration);
-    
+
     if (feedDurationTimeoutRef.current) {
       clearTimeout(feedDurationTimeoutRef.current);
     }
-    
+
     feedDurationTimeoutRef.current = setTimeout(async () => {
       const uid = getAuth().currentUser?.uid;
       if (!uid) return;
-      
+
       try {
-        await set(ref(database, `BANGUS/${uid}/fishData/feedDuration`), duration);
+        await set(
+          ref(database, `BANGUS/${uid}/fishData/feedDuration`),
+          duration
+        );
         toast.success("Feed duration updated successfully!", {
           position: "top-right",
           autoClose: 2000,
@@ -143,6 +173,38 @@ const Population = () => {
         });
       }
     }, 500); // 500ms delay
+  };
+
+  const updateFeedingSessions = async (sessions: number) => {
+    setFeedingSessions(sessions);
+
+    if (feedingSessionsTimeoutRef.current) {
+      clearTimeout(feedingSessionsTimeoutRef.current);
+    }
+
+    feedingSessionsTimeoutRef.current = setTimeout(async () => {
+      const uid = getAuth().currentUser?.uid;
+      if (!uid) return;
+
+      try {
+        await set(
+          ref(database, `BANGUS/${uid}/fishData/feedingSessions`),
+          sessions
+        );
+        toast.success("Feeding sessions updated successfully!", {
+          position: "top-right",
+          autoClose: 2000,
+          hideProgressBar: true,
+        });
+      } catch (error) {
+        console.log("Error updating feeding sessions:", error);
+        toast.error("Error updating feeding sessions", {
+          position: "top-right",
+          autoClose: 2000,
+          hideProgressBar: true,
+        });
+      }
+    }, 500);
   };
 
   const getCurrentLifeStageName = () => {
@@ -160,6 +222,11 @@ const Population = () => {
     return stage ? stage.feedFrequency : "medium";
   };
 
+  const getRecommendedFeedingSessions = () => {
+    const stage = LIFE_STAGES.find((s) => s.id === currentLifeStage);
+    return stage ? stage.recommendedSessions : 3;
+  };
+
   return (
     <div className="bg-white shadow-md rounded-xl p-6">
       <h2 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
@@ -170,7 +237,7 @@ const Population = () => {
         <div>
           <label
             htmlFor="lifeStage"
-            className="block text-sm text-gray-600 mb-1"
+            className="block text-sm text-gray-600 my-2"
           >
             Current Life Stage:
           </label>
@@ -190,7 +257,7 @@ const Population = () => {
         <div>
           <label
             htmlFor="population"
-            className="block text-sm text-gray-600 mb-1"
+            className="block text-sm text-gray-600 my-2"
           >
             Estimated Population:
           </label>
@@ -206,7 +273,7 @@ const Population = () => {
         <div>
           <label
             htmlFor="feedDuration"
-            className="block text-sm text-gray-600 mb-1"
+            className="block text-sm text-gray-600 my-2"
           >
             Feed Duration (seconds):
           </label>
@@ -239,6 +306,38 @@ const Population = () => {
             </p>
           </div>
         </div>
+      </div>
+      <div>
+        <label
+          htmlFor="feedingSessions"
+          className="block text-sm text-gray-600 mb-2 mt-6"
+        >
+          Feeding Sessions Per Day:
+        </label>
+        <div className="flex items-center">
+          <input
+            type="number"
+            id="feedingSessions"
+            value={feedingSessions}
+            onChange={(e) => updateFeedingSessions(parseInt(e.target.value))}
+            min="1"
+            max="10"
+            className="w-full px-3 py-2 border border-gray-200 rounded focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan"
+          />
+          <button
+            onClick={() =>
+              updateFeedingSessions(getRecommendedFeedingSessions())
+            }
+            className="ml-2 p-3 bg-bangus-cyan text-sm text-white rounded hover:bg-bangus-teal"
+            title="Reset to recommended value"
+          >
+            Reset
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Recommended: {getRecommendedFeedingSessions()} times per day for{" "}
+          {getCurrentLifeStageName()}
+        </p>
       </div>
     </div>
   );

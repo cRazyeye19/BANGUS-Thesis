@@ -17,6 +17,7 @@ const Main = () => {
   const [currentLifeStage, setCurrentLifeStage] = useState("fingerling");
   const [fishPopulation, setFishPopulation] = useState(100);
   const [feedDuration, setFeedDuration] = useState(5);
+  const [feedingSessions, setFeedingSessions] = useState(4);
 
   useEffect(() => {
     const uid = getAuth().currentUser?.uid;
@@ -34,15 +35,14 @@ const Main = () => {
         ([id, value]: [string, any]) => ({
           id,
           start: value.start,
+          lifeStage: value.lifeStage || currentLifeStage,
         })
       );
 
-      // Sort schedules by time
       scheduleList.sort((a, b) => a.start.localeCompare(b.start));
       setSchedules(scheduleList);
     });
 
-    // Load fish data (life stage, population, feed duration)
     const fishDataRef = ref(database, `BANGUS/${uid}/fishData`);
     onValue(fishDataRef, (snapshot) => {
       const data = snapshot.val();
@@ -50,11 +50,12 @@ const Main = () => {
         if (data.lifeStage) setCurrentLifeStage(data.lifeStage);
         if (data.population) setFishPopulation(data.population);
         if (data.feedDuration) setFeedDuration(data.feedDuration);
+        if (data.feedingSessions) setFeedingSessions(data.feedingSessions);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentLifeStage]);
 
   const triggerFeedNow = async () => {
     const uid = getAuth().currentUser?.uid;
@@ -94,19 +95,16 @@ const Main = () => {
     }
   };
 
-  // Helper function to find the next available timer index
   const getNextTimerIndex = async (uid: string) => {
     const timersRef = ref(database, `BANGUS/${uid}/timers`);
     const snapshot = await get(timersRef);
     const data = snapshot.val() || {};
 
-    // Find all existing sequential timer IDs
     const existingIndices = Object.keys(data)
       .filter((key) => key.startsWith("timer") && /^timer\d+$/.test(key))
       .map((key) => parseInt(key.replace("timer", ""), 10))
       .filter((num) => !isNaN(num));
 
-    // Find the next available index
     let nextIndex = 0;
     while (existingIndices.includes(nextIndex)) {
       nextIndex++;
@@ -128,11 +126,27 @@ const Main = () => {
     const uid = getAuth().currentUser?.uid;
     try {
       if (!uid) return;
+
+      if (schedules.length >= feedingSessions) {
+        toast.error(
+          `Maximum of ${feedingSessions} feeding sessions allowed for ${getLifeStageName(
+            currentLifeStage
+          )}`,
+          {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: true,
+          }
+        );
+        return;
+      }
+
       const nextIndex = await getNextTimerIndex(uid);
       const timerId = `timer${nextIndex}`;
 
       await set(ref(database, `BANGUS/${uid}/timers/${timerId}`), {
         start: startTime,
+        lifeStage: currentLifeStage,
       });
 
       console.log("Schedule created with ID:", timerId);
@@ -168,6 +182,7 @@ const Main = () => {
     try {
       await set(ref(database, `BANGUS/${uid}/timers/${editingId}`), {
         start: startTime,
+        lifeStage: currentLifeStage,
       });
 
       console.log("Schedule updated");
@@ -224,6 +239,16 @@ const Main = () => {
   const cancelEditing = () => {
     setStartTime("");
     setEditingId(null);
+  };
+
+  const getLifeStageName = (stageId: string) => {
+    const stages = {
+      fry: "Fry",
+      fingerling: "Fingerling",
+      juvenile: "Juvenile",
+      adult: "Adult",
+    };
+    return stages[stageId as keyof typeof stages] || stageId;
   };
 
   return (
@@ -303,6 +328,9 @@ const Main = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Time
                           </th>
+                          <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Life Stage
+                          </th>
                           <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Actions
                           </th>
@@ -319,6 +347,11 @@ const Main = () => {
                                 minute: "2-digit",
                                 hour12: true,
                               })}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                              {getLifeStageName(
+                                schedule.lifeStage || currentLifeStage
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
