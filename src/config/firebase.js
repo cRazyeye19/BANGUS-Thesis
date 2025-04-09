@@ -3,14 +3,14 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDUqlpTWmXr4vicykOx0dBqlVnJQyVkZDI",
-  authDomain: "thesis-app-3b413.firebaseapp.com",
-  databaseURL: "https://thesis-app-3b413-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "thesis-app-3b413",
-  storageBucket: "thesis-app-3b413.firebasestorage.app",
-  messagingSenderId: "121594504364",
-  appId: "1:121594504364:web:f0be7ee474bfc7e33fab09",
-  measurementId: "G-4S6E11BHRD"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
