@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: "Roboto", sans-serif;
+}
+
+.header {
+    font-family: "Boldonse", system-ui;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.loading-text span {
+    display: inline-block;
+    animation: bounce 1.5s infinite;
+}
+
+.loading-text span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.loading-text span:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.loading-text span:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.loading-text span:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.loading-text span:nth-child(5) {
+    animation-delay: 0.4s;
+}
+
+.loading-text span:nth-child(6) {
+    animation-delay: 0.5s;
+}
+
+.loading-text span:nth-child(7) {
+    animation-delay: 0.6s;
+}
+
+.animate-in {
+  opacity: 1 !important;
+  transform: translate(0, 0) !important;
+}
+
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+.animation-delay-700 {
+  animation-delay: 700ms;
+}
