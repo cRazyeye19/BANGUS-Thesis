@@ -1,13 +1,15 @@
 import type React from "react";
-import WelcomeImage from "../../assets/images/welcome.webp";
+import WelcomeImage from "../../assets/images/welcome2.webp";
 import ImageLoading from "../Loading/ImageLoading";
 
 const Welcome: React.FC = () => {
   return (
     <section id="about" className="py-16 md:py-24 bg-white overflow-hidden">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row gap-8 md:gap-12">
-          <div className="relative w-full md:w-1/2 h-auto max-h-[550px] overflow-hidden animate-on-scroll opacity-0 transition-all duration-1000 translate-x-[-50px]">
+        <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center">
+          {/* Added flex and items-center to parent container */}
+          <div className="relative w-full md:w-1/2 h-auto max-h-[550px] overflow-hidden animate-on-scroll opacity-0 transition-all duration-1000 translate-x-[-50px] flex items-center justify-center">
+            {/* Added flex, items-center and justify-center to this div */}
             <div className="absolute top-0 left-0 z-10 bg-bangus-teal text-white p-3 rounded-tr-lg rounded-bl-lg shadow-md">
               <div className="text-center">
                 <div className="text-sm font-medium">Innovative</div>

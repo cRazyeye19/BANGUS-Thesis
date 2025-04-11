@@ -17,11 +17,11 @@ const Loading = () => {
         <img
           src={loadingLogo}
           alt="Loading"
-          className="size-32 mb-8"
+          className="w-16 h-16 sm:w-24 sm:h-24 md:size-32 mb-4 sm:mb-6 md:mb-8"
         />
-        <h1 className="header tracking-wider text-6xl mt-2 font-semibold text-bangus-cyan">BANGUS</h1>
+        <h1 className="header tracking-wider text-3xl sm:text-4xl md:text-5xl lg:text-6xl mt-2 font-semibold text-bangus-cyan">BANGUS</h1>
       </div>
-      <h1 className="text-3xl font-bold">
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
         <span className="loading-text tracking-wider">
           {"Loading".split("").map((letter, index) => (
             <span key={index}>{letter}</span>
