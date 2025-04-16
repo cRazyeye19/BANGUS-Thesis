@@ -2,7 +2,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <WiFi.h>
-#include <WiFiManager.h>
+#include <WiFiManager.h>  // https://github.com/tzapu/WiFiManager
 #include "time.h"
 #include <ArduinoJson.h>
 
@@ -34,7 +34,7 @@ const int pwmFreq = 5000;     // PWM frequency (5 kHz)
 const int pwmResolution = 8;  // 8-bit resolution (0-255)
 const int motorSpeed = 255;   // PWM duty cycle value (0-255)
 const int pwmChannel = 0;     // PWM channel for the motor
-const unsigned long motorRunTime = 120000;  // 2 minutes
+const unsigned long motorRunTime = 600000;  // 10 minutes
 
 // Firebase settings
 #define API_KEY "AIzaSyDUqlpTWmXr4vicykOx0dBqlVnJQyVkZDI"
@@ -62,7 +62,7 @@ bool motorUpdateInProgress = false;
 
 // Timing variables
 unsigned long lastRealTimeUpdate = 0;
-const unsigned long REALTIME_UPDATE_INTERVAL = 1000;  // 1 second
+const unsigned long REALTIME_UPDATE_INTERVAL = 60000;  // 1 minute
 
 unsigned long lastSensorDataSend = 0;
 const unsigned long SENSOR_DATA_INTERVAL = 3600000;  // 1 hour in milliseconds (1*60*60*1000)
@@ -90,10 +90,6 @@ void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidi
 void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus);
 
 // Time and sensor functions
-/**
- * Gets the current Unix timestamp from NTP server
- * @return Unix timestamp (seconds since epoch) or 0 if failed
- */
 unsigned long getTime() {
   time_t now;
   struct tm timeinfo;
@@ -104,15 +100,6 @@ unsigned long getTime() {
   return now;
 }
 
-/**
- * Calculates oxygen status based on water parameters
- * @param ec Electrical conductivity in µS/cm
- * @param tds Total dissolved solids in ppm
- * @param temperature Water temperature in °C
- * @param ph pH value of water
- * @param turbidity Turbidity in NTU
- * @return String indicating oxygen status: "Low", "Normal", or "High"
- */
 String calculateOxygenStatus(float ec, float tds, float temperature, float ph, float turbidity) {
   if (temperature > 30 || ph < 6.5 || ph > 8.5 || ec > 800 || tds > 500 || turbidity > 1000) {
     return "Low";
@@ -123,10 +110,6 @@ String calculateOxygenStatus(float ec, float tds, float temperature, float ph, f
   }
 }
 
-/**
- * Starts the feeding motor for scheduled feeding
- * Motor will run for the duration set by motorRunTime
- */
 void runMotor() {
   // Ensure motor control pins are outputs
   pinMode(motorPin1, OUTPUT);
@@ -140,13 +123,23 @@ void runMotor() {
 
   Serial.println("Motor started");
 
+  // unsigned long startMillis = millis();
+  // while (millis() - startMillis < motorRunTime) {
+  //   delay(100);
+  // }
+
+  // Stop the motor
+  // ledcWrite(pwmPin, 0);
+  // digitalWrite(motorPin1, LOW);
+  // digitalWrite(motorPin2, LOW);
+  // Serial.println("Motor stopped");
+
+  // ledcDetach(pwmPin);
+
   motorStartTime = millis();
   motorIsRunning = true;
 }
 
-/**
- * Stops the feeding motor
- */
 void stopMotor() {
   ledcWrite(pwmChannel, 0);
   digitalWrite(motorPin1, LOW);
@@ -157,10 +150,6 @@ void stopMotor() {
   motorIsRunning = false;
 }
 
-/**
- * Checks if any scheduled feeding times match the current time
- * Activates the motor if a match is found
- */
 void checkMotorTimers() {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
@@ -171,41 +160,46 @@ void checkMotorTimers() {
   snprintf(currentTime, sizeof(currentTime), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
   String currentTimeStr = String(currentTime);
 
-  // Prevent multiple activations in the same minute
   if (currentTimeStr == lastMotorActivationTime) {
     return;
   }
 
-  // Check all possible timer slots (0-99)
-  for (int i = 0; i < 100; i++) {
-    String timerPath = "/BANGUS/" + uid + "/timers/timer" + String(i);
-    if (Firebase.RTDB.getString(&fbdo, timerPath.c_str())) {
-      String timerStr = fbdo.stringData();
-      DynamicJsonDocument doc(256);
-      DeserializationError error = deserializeJson(doc, timerStr);
-      if (!error && doc.containsKey("start")) {
-        const char *scheduledStart = doc["start"];
-        if (String(scheduledStart) == currentTimeStr) {
-          Serial.print("Scheduled motor activation at ");
-          Serial.println(scheduledStart);
-          runMotor();
-          lastMotorActivationTime = currentTimeStr;
+  String timersPath = "/BANGUS/" + uid + "/timers";
+  if (Firebase.RTDB.getJSON(&fbdo, timersPath.c_str())) {
+    String jsonStr = fbdo.payload();
+  
+    DynamicJsonDocument doc(4096);
+    DeserializationError error = deserializeJson(doc, jsonStr);
+    
+    if (!error) {
+      JsonObject timers = doc.as<JsonObject>();
+      for (JsonPair timer : timers) {
+        JsonObject timerData = timer.value().as<JsonObject>();
+        if (timerData.containsKey("start")) {
+          const char* scheduledStart = timerData["start"];
+          if (String(scheduledStart) == currentTimeStr) {
+            Serial.print("Scheduled motor activation at ");
+            Serial.println(scheduledStart);
+            runMotor();
+            lastMotorActivationTime = currentTimeStr;
+            break;
+          }
         }
-      } else {
-        Serial.println("Failed to parse timer JSON or missing 'start' field.");
       }
+    } else {
+      Serial.println("Failed to parse timers JSON: " + String(error.c_str()));
     }
+  } else {
+    Serial.println("Failed to get timers from Firebase: " + fbdo.errorReason());
   }
 }
 
-/**
- * Starts the motor for manual feeding (triggered by app)
- */
+// Function to start the motor using the new LEDC API
 void startMotorManual() {
   pinMode(motorPin1, OUTPUT);
   pinMode(motorPin2, OUTPUT);
 
-  // Attach PWM to the pin using the LEDC API
+  // Attach PWM to the pin using the new API
   ledcAttach(pwmPin, pwmFreq, pwmResolution);
 
   // Set motor direction (adjust polarity as needed)
@@ -215,9 +209,6 @@ void startMotorManual() {
   Serial.println("Manual motor started");
 }
 
-/**
- * Stops the motor for manual feeding
- */
 void stopMotorManual() {
   ledcWrite(pwmPin, 0);
   digitalWrite(motorPin1, LOW);
@@ -227,42 +218,28 @@ void stopMotorManual() {
   Serial.println("Manual motor stopped");
 }
 
-/**
- * Checks if manual feeding has been triggered from the app
- * Reads the "feedNow" field in Firebase
- */
+// Function to check the "feednow" field in Firebase for manual control
 void checkManualMotor() {
-  // Construct the path to the feedNow value
+  // Construct the path to the feednow value (adjust node path if needed)
   String feednowPath = "/BANGUS/" + uid + "/feedNow";
   if (Firebase.RTDB.getBool(&fbdo, feednowPath.c_str())) {
     bool feednow = fbdo.boolData();
 
-    // If feedNow is true and manual mode isn't already active, start the motor
+    // If feednow is true and manual mode isn't already active, start the motor
     if (feednow && !manualMotorActive) {
       startMotorManual();
       manualMotorActive = true;
     }
-    // If feedNow is false and manual mode is active, stop the motor
+    // If feednow is false and manual mode is active, stop the motor
     else if (!feednow && manualMotorActive) {
       stopMotorManual();
       manualMotorActive = false;
     }
   } else {
-    Serial.println("Failed to read feedNow value from Firebase");
+    Serial.println("Failed to read feednow value from Firebase");
   }
 }
 
-/**
- * Updates real-time sensor data in Firebase
- * Called every REALTIME_UPDATE_INTERVAL (1 second)
- * 
- * @param temp Temperature in °C
- * @param ph pH value
- * @param ec Electrical conductivity in µS/cm
- * @param tds Total dissolved solids in ppm
- * @param turbidity Turbidity in NTU
- * @param oxygenStatus Calculated oxygen status
- */
 void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus) {
   String realTimePath = "/BANGUS/" + uid + "/real-time";
   
@@ -281,18 +258,6 @@ void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidi
   }
 }
 
-/**
- * Sends historical sensor data to Firebase
- * Called every SENSOR_DATA_INTERVAL (1 hour)
- * Data is stored with timestamp for historical tracking
- * 
- * @param temp Temperature in °C
- * @param ph pH value
- * @param ec Electrical conductivity in µS/cm
- * @param tds Total dissolved solids in ppm
- * @param turbidity Turbidity in NTU
- * @param oxygenStatus Calculated oxygen status
- */
 void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus) {
   int timestamp = getTime();
   String parentReadingPath = databasePath + "/" + String(timestamp);
@@ -313,26 +278,29 @@ void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, 
   }
 }
 
-/**
- * Main setup function - runs once at startup
- * Initializes hardware, WiFi, and Firebase connection
- */
+// Main setup function
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("Setup Starting....");
 
-  // Initialize temperature sensor
+  // Initialize sensors
   sensors.begin();
+
+  pinMode(motorPin1, OUTPUT);
+  pinMode(motorPin2, OUTPUT);
+  digitalWrite(motorPin1, LOW);
+  digitalWrite(motorPin2, LOW);
+  ledcAttach(pwmPin, pwmFreq, pwmResolution);
+  ledcWrite(pwmPin, 0);
   
-  // Initialize WiFiManager for easy WiFi configuration
+  // Initialize WiFiManager
   WiFiManager wm;
   
   // Uncomment to reset saved settings during testing
   wm.resetSettings();
   
   // Set a custom AP name and password for configuration mode
-  // If WiFi connection fails, ESP32 will create an access point with these credentials
   bool res = wm.autoConnect("BANGUS", "bangus123");
   
   if (!res) {
@@ -343,10 +311,10 @@ void setup() {
   else {
     Serial.println("Connected to WiFi: " + WiFi.localIP().toString());
     
-    // Configure time after WiFi connection - set to Philippines timezone (UTC+8)
+    // Configure time after WiFi connection
     configTime(8 * 3600, 0, "time.nist.gov");
     
-    // Initialize Firebase with authentication
+    // Initialize Firebase
     config.api_key = API_KEY;
     auth.user.email = USER_EMAIL;
     auth.user.password = USER_PASSWORD;
@@ -356,7 +324,6 @@ void setup() {
     Firebase.begin(&config, &auth);
     Firebase.reconnectWiFi(true);
 
-    // Wait for Firebase connection (max 15 seconds)
     unsigned long start = millis();
     while (!Firebase.ready() && (millis() - start < 15000)) {
       delay(100);
@@ -373,14 +340,13 @@ void setup() {
   }
 }
 
-/**
- * Main loop function - runs repeatedly after setup
- * Handles sensor readings, motor control, and data transmission
- */
+// Main loop function
 void loop() {
   bool isWiFiConnected = (WiFi.status() == WL_CONNECTED);
   unsigned long currentMillis = millis();
   static unsigned long lastMotorCheck = 0;
+  static unsigned long lastSensorRead = 0;
+  const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensors every second
 
   // Check if WiFi is connected
   if (!isWiFiConnected) {
@@ -405,70 +371,75 @@ void loop() {
   // Motor control checks every 100ms
   if (currentMillis - lastMotorCheck >= 100) {
     lastMotorCheck = currentMillis;
-    checkMotorTimers();    // Check for scheduled feedings
-    checkManualMotor();    // Check for manual feeding command
-  }
-
-  // Stop motor after running for the specified duration
-  if(motorIsRunning && (currentMillis - motorStartTime >= motorRunTime)) {
-    stopMotor();
-  }
-  
-  // Read sensors
-  // Temperature sensor (DS18B20)
-  sensors.requestTemperatures();
-  float temperatureC = sensors.getTempCByIndex(0);
-  
-  // EC (Electrical Conductivity) and TDS (Total Dissolved Solids) sensor
-  int ecRaw = analogRead(EC_PIN);
-  float ecVoltage = ecRaw * (VREF / ADC_RESOLUTION);
-  float ecValue = (ecVoltage / VREF) * 800.0;  // Cap EC at 800 µS/cm
-  float tdsValue = ecValue * TDS_CONVERSION_FACTOR;
-  
-  // pH sensor
-  int phRaw = analogRead(PH_PIN);
-  float phVoltage = phRaw * (PH_VREF / ADC_RESOLUTION);
-  float phValue = 10.0 + ((2.5 - phVoltage) * 3.5);
-  
-  // Turbidity sensor
-  int turbidityRaw = analogRead(TURBIDITY_PIN);
-  float turbidityVoltage = turbidityRaw * (TURBIDITY_VREF / ADC_RESOLUTION);
-  
-  // Calculate turbidity in NTU (Nephelometric Turbidity Units)
-  float turbidityNTU = 0.0;
-  if (turbidityVoltage >= CLEAR_WATER_VOLTAGE) {
-    turbidityNTU = 15;  // Minimum NTU for brackish water
-  } else if (turbidityVoltage <= MAX_TURBIDITY_VOLTAGE) {
-    turbidityNTU = MAX_NTU;  // Very turbid water
-  } else {
-    turbidityNTU = 15 + ((CLEAR_WATER_VOLTAGE - turbidityVoltage) * 
-                         ((MAX_NTU - 15) / (CLEAR_WATER_VOLTAGE - MAX_TURBIDITY_VOLTAGE)));
-  }
-  turbidityNTU = fmax(15.0, turbidityNTU);
-  
-  // Calculate oxygen status based on all sensor readings
-  String oxygenStatus = calculateOxygenStatus(ecValue, tdsValue, temperatureC, phValue, turbidityNTU);
-  
-  // Print sensor values to Serial Monitor for debugging
-  Serial.printf("Temperature: %.2f °C\n", temperatureC);
-  Serial.printf("Conductivity: %.2f µS/cm\n", ecValue);
-  Serial.printf("TDS: %.2f ppm\n", tdsValue);
-  Serial.printf("pH: %.2f\n", phValue);
-  Serial.printf("Turbidity: %.2f NTU\n", turbidityNTU);
-  Serial.printf("Oxygen Status: %s\n", oxygenStatus.c_str());
-
-  // Update real-time data every second
-  if (currentMillis - lastRealTimeUpdate >= REALTIME_UPDATE_INTERVAL) {
-    lastRealTimeUpdate = currentMillis;
-    updateRealTimeData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
+    
+    // Check if motor should be stopped based on run time
+    if(motorIsRunning && (currentMillis - motorStartTime >= motorRunTime)) {
+      stopMotor();
+    }
+    
+    // Only check for new motor activations if motor is not already running
+    if(!motorIsRunning) {
+      checkMotorTimers();
+      checkManualMotor();
+    }
   }
   
-  // Send historical sensor data every 1 hour
-  if (currentMillis - lastSensorDataSend >= SENSOR_DATA_INTERVAL) {
-    lastSensorDataSend = currentMillis;
-    sendSensorData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
-    Serial.println("1-hour interval reached - sent historical data to Firebase");
+  // Read sensors at regular intervals, separate from motor control
+  if (currentMillis - lastSensorRead >= SENSOR_READ_INTERVAL) {
+    lastSensorRead = currentMillis;
+    
+    // Read sensors
+    sensors.requestTemperatures();
+    float temperatureC = sensors.getTempCByIndex(0);
+    
+    int ecRaw = analogRead(EC_PIN);
+    float ecVoltage = ecRaw * (VREF / ADC_RESOLUTION);
+    float ecValue = (ecVoltage / VREF) * 800.0;  // Cap EC at 800 µS/cm
+    float tdsValue = ecValue * TDS_CONVERSION_FACTOR;
+    
+    int phRaw = analogRead(PH_PIN);
+    float phVoltage = phRaw * (PH_VREF / ADC_RESOLUTION);
+    float phValue = 10.0 + ((2.5 - phVoltage) * 3.5);
+    
+    int turbidityRaw = analogRead(TURBIDITY_PIN);
+    float turbidityVoltage = turbidityRaw * (TURBIDITY_VREF / ADC_RESOLUTION);
+    
+    float turbidityNTU = 0.0;
+    if (turbidityVoltage >= CLEAR_WATER_VOLTAGE) {
+      turbidityNTU = 15;  // Minimum NTU for brackish water
+    } else if (turbidityVoltage <= MAX_TURBIDITY_VOLTAGE) {
+      turbidityNTU = MAX_NTU;  // Very turbid water
+    } else {
+      turbidityNTU = 15 + ((CLEAR_WATER_VOLTAGE - turbidityVoltage) * 
+                           ((MAX_NTU - 15) / (CLEAR_WATER_VOLTAGE - MAX_TURBIDITY_VOLTAGE)));
+    }
+    turbidityNTU = fmax(15.0, turbidityNTU);
+    
+    String oxygenStatus = calculateOxygenStatus(ecValue, tdsValue, temperatureC, phValue, turbidityNTU);
+    
+    // Print sensor values
+    Serial.printf("Temperature: %.2f °C\n", temperatureC);
+    Serial.printf("Conductivity: %.2f µS/cm\n", ecValue);
+    Serial.printf("TDS: %.2f ppm\n", tdsValue);
+    Serial.printf("pH: %.2f\n", phValue);
+    Serial.printf("Turbidity: %.2f NTU\n", turbidityNTU);
+    Serial.printf("Oxygen Status: %s\n", oxygenStatus.c_str());
+    Serial.printf("Motor status: %s\n", motorIsRunning ? "Running" : "Stopped");
+    
+    // Update real-time data at the specified interval
+    if (currentMillis - lastRealTimeUpdate >= REALTIME_UPDATE_INTERVAL) {
+      lastRealTimeUpdate = currentMillis;
+      updateRealTimeData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
+    }
+    
+    // Send historical sensor data every 1 hour
+    if (currentMillis - lastSensorDataSend >= SENSOR_DATA_INTERVAL) {
+      lastSensorDataSend = currentMillis;
+      sendSensorData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
+      Serial.println("1-hour interval reached - sent historical data to Firebase");
+    }
   }
   
-  delay(10); // Short delay to prevent CPU hogging
+  // Short delay to prevent CPU hogging
+  delay(10);
 }

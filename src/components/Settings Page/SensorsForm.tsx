@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { ref, update } from "firebase/database";
+import { useState, useEffect } from "react";
+import { ref, update, onValue } from "firebase/database";
 import { database } from "../../config/firebase";
 import { getAuth } from "firebase/auth";
 import { toast } from "react-toastify";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFloppyDisk } from "@fortawesome/free-solid-svg-icons";
+
 const SensorsForm = () => {
   const [samplingInterval, setSamplingInterval] = useState("");
   // Temperature thresholds
@@ -27,8 +28,46 @@ const SensorsForm = () => {
   const [tdsNormal, setTdsNormal] = useState("");
   const [tdsDanger, setTdsDanger] = useState("");
 
+  // Loading state
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch existing settings on component mount
+  useEffect(() => {
+    const uid = getAuth().currentUser?.uid;
+    if (!uid) return;
+    
+    const settingsRef = ref(database, `BANGUS/${uid}/settings`);
+    onValue(settingsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (data.samplingInterval) setSamplingInterval(data.samplingInterval);
+        if (data.temperature) {
+          setTempNormal(data.temperature.Minimum);
+          setTempDanger(data.temperature.Maximum);
+        }
+        if (data.ph) {
+          setPhNormal(data.ph.Minimum);
+          setPhDanger(data.ph.Maximum);
+        }
+        if (data.turbidity) {
+          setTurbidityNormal(data.turbidity.Minimum);
+          setTurbidityDanger(data.turbidity.Maximum);
+        }
+        if (data.ec) {
+          setEcNormal(data.ec.Minimum);
+          setEcDanger(data.ec.Maximum);
+        }
+        if (data.tds) {
+          setTdsNormal(data.tds.Minimum);
+          setTdsDanger(data.tds.Maximum);
+        }
+      }
+    });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     const sensorDataUpdates = {
       samplingInterval,
@@ -66,6 +105,7 @@ const SensorsForm = () => {
           hideProgressBar: true,
           closeOnClick: true,
         });
+        setIsLoading(false);
       })
       .catch((error) => {
         console.log("Error updating sensor data:", error);
@@ -75,31 +115,20 @@ const SensorsForm = () => {
           hideProgressBar: true,
           closeOnClick: true,
         });
+        setIsLoading(false);
       });
-    // Reset state variables to their initial values
-    setSamplingInterval("");
-    setTempNormal("");
-    setTempDanger("");
-    setPhNormal("");
-    setPhDanger("");
-    setTurbidityNormal("");
-    setTurbidityDanger("");
-    setEcNormal("");
-    setEcDanger("");
-    setTdsNormal("");
-    setTdsDanger("");
   };
 
   return (
     <div className="bg-white shadow-md rounded-xl p-6">
-      <h2 className="text-lg font-medium mb-3 text-gray-900">
+      <h2 className="text-lg font-medium mb-4 text-gray-900">
         Sensor Parameters
       </h2>
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label
             htmlFor="tempThreshold"
-            className="block text-sm text-gray-800 my-2"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Temperature Thresholds (°C)
           </label>
@@ -112,7 +141,7 @@ const SensorsForm = () => {
               onChange={(e) => setTempNormal(e.target.value)}
               step="0.1"
               placeholder="Minimum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
             <input
               type="number"
@@ -122,14 +151,14 @@ const SensorsForm = () => {
               onChange={(e) => setTempDanger(e.target.value)}
               step="0.1"
               placeholder="Maximum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
           </div>
         </div>
         <div className="mb-4">
           <label
             htmlFor="phThreshold"
-            className="block text-sm text-gray-800 my-2"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             pH Thresholds
           </label>
@@ -142,7 +171,7 @@ const SensorsForm = () => {
               onChange={(e) => setPhNormal(e.target.value)}
               step="0.1"
               placeholder="Minimum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
             <input
               type="number"
@@ -152,14 +181,14 @@ const SensorsForm = () => {
               onChange={(e) => setPhDanger(e.target.value)}
               step="0.1"
               placeholder="Maximum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
           </div>
         </div>
         <div className="mb-4">
           <label
             htmlFor="turbidityThreshold"
-            className="block text-sm text-gray-800 my-2"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Turbidity Thresholds (NTU)
           </label>
@@ -172,7 +201,7 @@ const SensorsForm = () => {
               onChange={(e) => setTurbidityNormal(e.target.value)}
               step="0.1"
               placeholder="Minimum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
             <input
               type="number"
@@ -182,14 +211,14 @@ const SensorsForm = () => {
               onChange={(e) => setTurbidityDanger(e.target.value)}
               step="0.1"
               placeholder="Maximum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
           </div>
         </div>
         <div className="mb-4">
           <label
             htmlFor="ecThreshold"
-            className="block text-sm text-gray-800 my-2"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             EC Level Thresholds (μS/cm)
           </label>
@@ -202,7 +231,7 @@ const SensorsForm = () => {
               onChange={(e) => setEcNormal(e.target.value)}
               step="1"
               placeholder="Minimum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
             <input
               type="number"
@@ -212,14 +241,14 @@ const SensorsForm = () => {
               onChange={(e) => setEcDanger(e.target.value)}
               step="1"
               placeholder="Maximum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
           </div>
         </div>
         <div className="mb-4">
           <label
             htmlFor="tdsThreshold"
-            className="block text-sm text-gray-800 my-2"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Total Dissolved Solids Thresholds (ppm)
           </label>
@@ -232,7 +261,7 @@ const SensorsForm = () => {
               onChange={(e) => setTdsNormal(e.target.value)}
               step="1"
               placeholder="Minimum"
-              className="mt-1 p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
             <input
               type="number"
@@ -242,16 +271,20 @@ const SensorsForm = () => {
               onChange={(e) => setTdsDanger(e.target.value)}
               step="1"
               placeholder="Maximum"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              className="mt-1 p-1 block w-full rounded-md border-gray-200 focus:outline-none focus:border-bangus-cyan focus:ring-1 focus:ring-bangus-cyan transition-colors"
             />
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2">
           <button
             type="submit"
-            className="px-6 py-2 rounded bg-bangus-cyan text-white hover:bg-bangus-teal transition-colors"
+            disabled={isLoading}
+            className={`px-6 py-2 rounded bg-bangus-cyan text-white hover:bg-bangus-teal transition-colors flex items-center justify-center gap-2 ${
+              isLoading ? "opacity-70 cursor-not-allowed" : ""
+            }`}
           >
-            <FontAwesomeIcon icon={faFloppyDisk} /> Save Changes
+            <FontAwesomeIcon icon={faFloppyDisk} /> 
+            {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </form>
