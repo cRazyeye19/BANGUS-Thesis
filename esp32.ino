@@ -52,6 +52,7 @@ bool wasWiFiConnected = false;
 unsigned long lastTokenRefresh = 0;
 unsigned long tokenExpirationTime = 0;
 const unsigned long TOKEN_REFRESH_INTERVAL = 3600000; // 1 hour
+unsigned long lastThresholdCheck = 0;
 
 //Motor control
 enum MotorState { MOTOR_OFF, MOTOR_AUTO_RUNNING, MOTOR_MANUAL_RUNNING };
@@ -80,14 +81,16 @@ DallasTemperature sensors(&oneWire);
 // Function prototypes
 void tokenStatusCallback(TokenInfo info);
 unsigned long getTime();
-String calculateOxygenStatus(float ec, float tds, float temp, float ph, float turbidity);
+// String calculateOxygenStatus(float ec, float tds, float temp, float ph, float turbidity);
 void runMotor();
 void checkMotorTimers();
 void startMotorManual();
 void stopMotorManual();
 void checkManualMotor();
-void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus);
-void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus);
+void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity);
+void sendSensorData(float temp, float ph, float ec, float tds, float turbidity);
+void createNotification(const char* type, const char* message, FirebaseJson* details = NULL);
+void checkSensorThresholds(float temp, float ph, float ec, float tds, float turbidity);
 
 // Time and sensor functions
 unsigned long getTime() {
@@ -100,13 +103,169 @@ unsigned long getTime() {
   return now;
 }
 
-String calculateOxygenStatus(float ec, float tds, float temperature, float ph, float turbidity) {
-  if (temperature > 30 || ph < 6.5 || ph > 8.5 || ec > 800 || tds > 500 || turbidity > 1000) {
-    return "Low";
-  } else if (temperature < 25 && ph >= 6.5 && ph <= 8.5 && ec < 200 && tds < 150 && turbidity < 500) {
-    return "High";
+// String calculateOxygenStatus(float ec, float tds, float temperature, float ph, float turbidity) {
+//   if (temperature > 30 || ph < 6.5 || ph > 8.5 || ec > 800 || tds > 500 || turbidity > 1000) {
+//     return "Low";
+//   } else if (temperature < 25 && ph >= 6.5 && ph <= 8.5 && ec < 200 && tds < 150 && turbidity < 500) {
+//     return "High";
+//   } else {
+//     return "Normal";
+//   }
+// }
+
+void createNotification(const char* type, const char* message, FirebaseJson* details) {
+  if(!Firebase.ready()) {
+    Serial.println("Firebase not ready");
+    return;
+  }
+
+  unsigned long timestamp = getTime();
+  String notificationPath = "/BANGUS/" + uid + "/notifications/" + String(timestamp);
+
+  FirebaseJson notificationJson;
+  notificationJson.set("type", type);
+  notificationJson.set("message", message);
+  notificationJson.set("timestamp", timestamp * 1000);
+  notificationJson.set("read", false);
+
+  if (details != NULL) {
+    notificationJson.set("details", *details);
+  }
+
+  if(Firebase.RTDB.setJSON(&fbdo, notificationPath.c_str(), &notificationJson)) {
+    Serial.println("Notification created: " + String(message)); 
   } else {
-    return "Normal";
+    Serial.println("Failed to create notification: " + fbdo.errorReason());
+  }
+}
+
+void checkSensorThresholds(float temp, float ph, float ec, float tds, float turbidity) {
+ if(!Firebase.ready()) {
+    Serial.println("Firebase not ready");
+    return;
+  }
+
+  String thresholdsPath = "/BANGUS/" + uid + "/settings";
+
+  if(Firebase.RTDB.getJSON(&fbdo, thresholdsPath.c_str())) {
+    String jsonStr = fbdo.payload(); 
+    DynamicJsonDocument doc(4096);
+    DeserializationError error = deserializeJson(doc, jsonStr);
+
+    if(!error) {
+      if (doc.containsKey("temperature")) {
+        float minTemp = doc["temperature"]["Minimum"].as<float>();
+        float maxTemp = doc["temperature"]["Maximum"].as<float>();
+        
+        if (temp < minTemp) {
+          FirebaseJson details;
+          details.set("sensor", "temperature");
+          details.set("value", temp);
+          details.set("threshold", minTemp);
+          details.set("status", "below");
+          createNotification("sensor_alert", "Temperature below optimal range", &details);
+        } 
+        else if (temp > maxTemp) {
+          FirebaseJson details;
+          details.set("sensor", "temperature");
+          details.set("value", temp);
+          details.set("threshold", maxTemp);
+          details.set("status", "above");
+          createNotification("sensor_alert", "Temperature above optimal range", &details);
+        }
+      }
+
+      if(doc.containsKey("pH")) {
+        float minPH = doc["pH"]["Minimum"].as<float>();
+        float maxPH = doc["pH"]["Maximum"].as<float>();
+        
+        if(ph < minPH) {
+          FirebaseJson details;
+          details.set("sensor", "pH");
+          details.set("value", ph);
+          details.set("threshold", minPH);
+          details.set("status", "below");
+          createNotification("sensor_alert", "pH below optimal range", &details);
+        } else if (ph > maxPH) {
+          FirebaseJson details;
+          details.set("sensor", "pH");
+          details.set("value", ph);
+          details.set("threshold", maxPH);
+          details.set("status", "above");
+          createNotification("sensor_alert", "pH above optimal range", &details);
+        }
+      }
+
+      if (doc.containsKey("ec")) {
+        float minEc = doc["ec"]["Minimum"].as<float>();
+        float maxEc = doc["ec"]["Maximum"].as<float>();
+        
+        if (ec < minEc) {
+          FirebaseJson details;
+          details.set("sensor", "EC");
+          details.set("value", ec);
+          details.set("threshold", minEc);
+          details.set("status", "below");
+          createNotification("sensor_alert", "Conductivity below optimal range", &details);
+        } 
+        else if (ec > maxEc) {
+          FirebaseJson details;
+          details.set("sensor", "EC");
+          details.set("value", ec);
+          details.set("threshold", maxEc);
+          details.set("status", "above");
+          createNotification("sensor_alert", "Conductivity above optimal range", &details);
+        }
+      }
+
+      if (doc.containsKey("tds")) {
+        float minTds = doc["tds"]["Minimum"].as<float>();
+        float maxTds = doc["tds"]["Maximum"].as<float>();
+        
+        if (tds < minTds) {
+          FirebaseJson details;
+          details.set("sensor", "TDS");
+          details.set("value", tds);
+          details.set("threshold", minTds);
+          details.set("status", "below");
+          createNotification("sensor_alert", "TDS below optimal range", &details);
+        } 
+        else if (tds > maxTds) {
+          FirebaseJson details;
+          details.set("sensor", "TDS");
+          details.set("value", tds);
+          details.set("threshold", maxTds);
+          details.set("status", "above");
+          createNotification("sensor_alert", "TDS above optimal range", &details);
+        }
+      }
+
+      if (doc.containsKey("turbidity")) {
+        float minTurb = doc["turbidity"]["Minimum"].as<float>();
+        float maxTurb = doc["turbidity"]["Maximum"].as<float>();
+        
+        if (turbidity < minTurb) {
+          FirebaseJson details;
+          details.set("sensor", "turbidity");
+          details.set("value", turbidity);
+          details.set("threshold", minTurb);
+          details.set("status", "below");
+          createNotification("sensor_alert", "Turbidity below optimal range", &details);
+        } 
+        else if (turbidity > maxTurb) {
+          FirebaseJson details;
+          details.set("sensor", "turbidity");
+          details.set("value", turbidity);
+          details.set("threshold", maxTurb);
+          details.set("status", "above");
+          createNotification("sensor_alert", "Turbidity above optimal range", &details);
+        }
+      }
+    } else {
+      Serial.println("Failed to parse thresholds JSON: " + String(error.c_str()));
+    }
+  } else {
+    Serial.println("Failed to get thresholds from Firebase: " + fbdo.errorReason());
   }
 }
 
@@ -146,8 +305,8 @@ void stopMotor() {
   digitalWrite(motorPin2, LOW);
   ledcDetach(pwmPin);
   Serial.println("Motor stopped");
-
   motorIsRunning = false;
+  createNotification("feeding_complete", "Scheduled feeding session completed");
 }
 
 void checkMotorTimers() {
@@ -180,6 +339,7 @@ void checkMotorTimers() {
           if (String(scheduledStart) == currentTimeStr) {
             Serial.print("Scheduled motor activation at ");
             Serial.println(scheduledStart);
+            String timerId = String(timer.key().c_str());
             runMotor();
             lastMotorActivationTime = currentTimeStr;
             break;
@@ -208,29 +368,26 @@ void startMotorManual() {
   ledcWrite(pwmPin, motorSpeed);
   Serial.println("Manual motor started");
 }
-
+// Function to stop the motor using the new LEDC API
 void stopMotorManual() {
   ledcWrite(pwmPin, 0);
   digitalWrite(motorPin1, LOW);
   digitalWrite(motorPin2, LOW);
-  // Detach PWM from the pin
   ledcDetach(pwmPin);
   Serial.println("Manual motor stopped");
+  createNotification("feeding_complete", "Manual feeding session completed");
 }
 
 // Function to check the "feednow" field in Firebase for manual control
 void checkManualMotor() {
-  // Construct the path to the feednow value (adjust node path if needed)
   String feednowPath = "/BANGUS/" + uid + "/feedNow";
   if (Firebase.RTDB.getBool(&fbdo, feednowPath.c_str())) {
     bool feednow = fbdo.boolData();
 
-    // If feednow is true and manual mode isn't already active, start the motor
     if (feednow && !manualMotorActive) {
       startMotorManual();
       manualMotorActive = true;
     }
-    // If feednow is false and manual mode is active, stop the motor
     else if (!feednow && manualMotorActive) {
       stopMotorManual();
       manualMotorActive = false;
@@ -240,7 +397,7 @@ void checkManualMotor() {
   }
 }
 
-void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus) {
+void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity) {
   String realTimePath = "/BANGUS/" + uid + "/real-time";
   
   FirebaseJson rtJson;
@@ -249,7 +406,6 @@ void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidi
   rtJson.set("/EC", ec);
   rtJson.set("/turbidity", turbidity);
   rtJson.set("/TDS", tds);
-  rtJson.set("/oxygenStatus", oxygenStatus);
   
   if (Firebase.RTDB.setJSON(&fbdo, realTimePath.c_str(), &rtJson)) {
     Serial.println("Real-time data updated");
@@ -258,7 +414,7 @@ void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidi
   }
 }
 
-void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, String oxygenStatus) {
+void sendSensorData(float temp, float ph, float ec, float tds, float turbidity) {
   int timestamp = getTime();
   String parentReadingPath = databasePath + "/" + String(timestamp);
   
@@ -268,7 +424,6 @@ void sendSensorData(float temp, float ph, float ec, float tds, float turbidity, 
   historyJson.set("EC", ec);
   historyJson.set("TDS", tds);
   historyJson.set("turbidity", turbidity);
-  historyJson.set("oxygenStatus", oxygenStatus);
   historyJson.set("timestamp", String(timestamp));
   
   if (Firebase.RTDB.setJSON(&fbdo, parentReadingPath.c_str(), &historyJson)) {
@@ -346,7 +501,8 @@ void loop() {
   unsigned long currentMillis = millis();
   static unsigned long lastMotorCheck = 0;
   static unsigned long lastSensorRead = 0;
-  const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensors every second
+  const unsigned long SENSOR_READ_INTERVAL = 1000;
+  const unsigned long THRESHOLD_CHECK_INTERVAL = 60000;
 
   // Check if WiFi is connected
   if (!isWiFiConnected) {
@@ -394,7 +550,7 @@ void loop() {
     
     int ecRaw = analogRead(EC_PIN);
     float ecVoltage = ecRaw * (VREF / ADC_RESOLUTION);
-    float ecValue = (ecVoltage / VREF) * 800.0;  // Cap EC at 800 µS/cm
+    float ecValue = (ecVoltage / VREF) * 800.0;
     float tdsValue = ecValue * TDS_CONVERSION_FACTOR;
     
     int phRaw = analogRead(PH_PIN);
@@ -415,28 +571,31 @@ void loop() {
     }
     turbidityNTU = fmax(15.0, turbidityNTU);
     
-    String oxygenStatus = calculateOxygenStatus(ecValue, tdsValue, temperatureC, phValue, turbidityNTU);
-    
     // Print sensor values
     Serial.printf("Temperature: %.2f °C\n", temperatureC);
     Serial.printf("Conductivity: %.2f µS/cm\n", ecValue);
     Serial.printf("TDS: %.2f ppm\n", tdsValue);
     Serial.printf("pH: %.2f\n", phValue);
     Serial.printf("Turbidity: %.2f NTU\n", turbidityNTU);
-    Serial.printf("Oxygen Status: %s\n", oxygenStatus.c_str());
     Serial.printf("Motor status: %s\n", motorIsRunning ? "Running" : "Stopped");
     
     // Update real-time data at the specified interval
     if (currentMillis - lastRealTimeUpdate >= REALTIME_UPDATE_INTERVAL) {
       lastRealTimeUpdate = currentMillis;
-      updateRealTimeData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
+      updateRealTimeData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU);
     }
     
     // Send historical sensor data every 1 hour
     if (currentMillis - lastSensorDataSend >= SENSOR_DATA_INTERVAL) {
       lastSensorDataSend = currentMillis;
-      sendSensorData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU, oxygenStatus);
+      sendSensorData(temperatureC, phValue, ecValue, tdsValue, turbidityNTU);
       Serial.println("1-hour interval reached - sent historical data to Firebase");
+    }
+
+    // Check sensor thresholds every 1 minute
+    if(currentMillis - lastThresholdCheck >= THRESHOLD_CHECK_INTERVAL) {
+      lastThresholdCheck = currentMillis;
+      checkSensorThresholds(temperatureC, phValue, ecValue, tdsValue, turbidityNTU);
     }
   }
   

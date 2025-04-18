@@ -1,20 +1,12 @@
 import "./index.css";
 import { Route, Routes } from "react-router-dom";
-// import SignIn from "./components/Auth Page/SignIn";
-// import SignUp from "./components/Auth Page/SignUp";
 import { auth } from "./config/firebase";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-// import Dashboard from "./components/Dashboard Page/Dashboard";
-// import Main from "./components/Fish Feeding Page/Main";
-// import Settings from "./components/Settings Page/Settings";
-// import About from "./components/About Us Page/About";
-// import Landing from "./pages/Landing";
 import Loading from "./components/Loading/Loading";
-// import ResetPassword from "./components/Auth Page/ResetPassword";
-// import VerifyOTP from "./components/Auth Page/VerifyOTP";
+import { NotificationsProvider } from "./context/NotificationsContext";
 
 const SignIn = lazy(() => import("./components/Auth Page/SignIn"));
 const SignUp = lazy(() => import("./components/Auth Page/SignUp"));
@@ -44,7 +36,7 @@ function App() {
     return <Loading />;
   }
   return (
-    <>
+    <NotificationsProvider>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -72,7 +64,7 @@ function App() {
         </Routes>
       </Suspense>
       <ToastContainer />
-    </>
+    </NotificationsProvider>
   );
 }
 export default App;

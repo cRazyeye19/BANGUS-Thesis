@@ -35,7 +35,7 @@ const WiFiForm = () => {
         toast.success(message, {
           position: "top-right",
           autoClose: 2000,
-          hideProgressBar: false,
+          hideProgressBar: true,
           closeOnClick: true,
         })
 
@@ -48,7 +48,7 @@ const WiFiForm = () => {
         toast.error(message, {
           position: "top-right",
           autoClose: 2000,
-          hideProgressBar: false,
+          hideProgressBar: true,
           closeOnClick: true,
         })
       }
