@@ -12,7 +12,7 @@ import {
   faMagnifyingGlass,
 } from "@fortawesome/free-solid-svg-icons";
 import { NavItemProps } from "../../types/dashboard";
-import NotificationsCenter from "../Notifications/NotificationsCenter";
+import NotificationsCenter from "../Notifications/Notifications";
 
 const NavItem = ({ to, icon, text, currentPath }: NavItemProps) => {
   const isActive = currentPath === to;

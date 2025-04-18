@@ -100,7 +100,7 @@ const SensorChart = () => {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Sensor Readings</h2>
+        <h2 className="app-header text-xl font-semibold">Sensor Readings</h2>
         <div>
           <label htmlFor="timeRange" className="mr-2 hidden md:inline">
             View data for:
