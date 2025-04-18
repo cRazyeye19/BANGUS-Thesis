@@ -125,7 +125,7 @@ void createNotification(const char* type, const char* message, FirebaseJson* det
   FirebaseJson notificationJson;
   notificationJson.set("type", type);
   notificationJson.set("message", message);
-  notificationJson.set("timestamp", timestamp * 1000);
+  notificationJson.set("timestamp", timestamp);
   notificationJson.set("read", false);
 
   if (details != NULL) {

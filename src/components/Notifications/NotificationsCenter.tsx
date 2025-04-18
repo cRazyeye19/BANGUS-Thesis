@@ -62,12 +62,14 @@ const NotificationsCenter = () => {
   };
 
   const formatTimeStamp = (timestamp: number) => {
-    const date = new Date(timestamp);
+    const timestampMs = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
     
-    // Format date as DD/MM/YY
+    const date = new Date(timestampMs);
+    
+    // Format date as DD/MM/YYYY
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2);
+    const year = date.getFullYear();
     
     // Format time in 12-hour format with AM/PM
     const timeOptions: Intl.DateTimeFormatOptions = { 

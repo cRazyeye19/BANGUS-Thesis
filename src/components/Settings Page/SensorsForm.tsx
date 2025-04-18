@@ -7,7 +7,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFloppyDisk } from "@fortawesome/free-solid-svg-icons";
 
 const SensorsForm = () => {
-  const [samplingInterval, setSamplingInterval] = useState("");
   // Temperature thresholds
   const [tempNormal, setTempNormal] = useState("");
   const [tempDanger, setTempDanger] = useState("");
@@ -40,7 +39,6 @@ const SensorsForm = () => {
     onValue(settingsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        if (data.samplingInterval) setSamplingInterval(data.samplingInterval);
         if (data.temperature) {
           setTempNormal(data.temperature.Minimum);
           setTempDanger(data.temperature.Maximum);
@@ -70,11 +68,6 @@ const SensorsForm = () => {
     setIsLoading(true);
 
     const sensorDataUpdates = {
-      samplingInterval,
-      temperature: {
-        Minimum: tempNormal,
-        Maximum: tempDanger,
-      },
       ph: {
         Minimum: phNormal,
         Maximum: phDanger,
