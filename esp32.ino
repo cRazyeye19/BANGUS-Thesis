@@ -22,16 +22,15 @@ const int pwmPin = 14;     // L298N ENA (PWM for Motor A)
 // Constants for sensors - Updated for specific models
 const float VREF = 3.3;
 const int ADC_RESOLUTION = 4095;
-const float TURBIDITY_VREF = 5.0;  // TS300-B typically uses 5V reference
+const float TURBIDITY_VREF = 5.0;
 const float PH_VREF = 3.3;
-const float CLEAR_WATER_VOLTAGE = 4.1;  // TS300-B: ~4.1V for clear water
-const float MAX_TURBIDITY_VOLTAGE = 2.5;  // TS300-B: ~2.5V for very turbid water
-// const float MAX_NTU = 500.0;
-const float TDS_CONVERSION_FACTOR = 0.5;  // SEN0244 specific factor
+const float CLEAR_WATER_VOLTAGE = 4.1;
+const float MAX_TURBIDITY_VOLTAGE = 2.5; 
+const float TDS_CONVERSION_FACTOR = 0.5; 
 
-const float PH_CALIBRATION_POINT_1_VOLTAGE = 2.5;  // Voltage at pH 7.0 (neutral)
+const float PH_CALIBRATION_POINT_1_VOLTAGE = 2.5;  
 const float PH_CALIBRATION_POINT_1_PH = 7.0;
-const float PH_CALIBRATION_POINT_2_VOLTAGE = 2.0;  // Voltage at pH 4.0 (acidic)
+const float PH_CALIBRATION_POINT_2_VOLTAGE = 2.0;
 const float PH_CALIBRATION_POINT_2_PH = 4.0;
 const float PH_SLOPE = (PH_CALIBRATION_POINT_2_PH - PH_CALIBRATION_POINT_1_PH) / 
                        (PH_CALIBRATION_POINT_2_VOLTAGE - PH_CALIBRATION_POINT_1_VOLTAGE);
@@ -39,8 +38,8 @@ const float PH_SLOPE = (PH_CALIBRATION_POINT_2_PH - PH_CALIBRATION_POINT_1_PH) /
 const float EC_K_VALUE = 1.0;  // K=1.0 is standard for DFR0300-H
 const float EC_TEMP_COMPENSATION = 0.019; // 1.9% per degree Celsius
 
-const float BRACKISH_MIN_NTU = 25.0;  // TS300-B can measure down to 0 NTU
-const float BRACKISH_MAX_NTU = 80.0; // Maximum NTU for very turbid water
+const float BRACKISH_MIN_NTU = 25.0;
+const float BRACKISH_MAX_NTU = 80.0;
 
 // Temperature compensation reference (25°C is standard)
 const float TEMP_COMPENSATION_REF = 25.0;
@@ -57,11 +56,11 @@ const int pwmFreq = 5000;     // PWM frequency (5 kHz)
 const int pwmResolution = 8;  // 8-bit resolution (0-255)
 const int motorSpeed = 255;   // PWM duty cycle value (0-255)
 const int pwmChannel = 0;     // PWM channel for the motor
-const unsigned long motorRunTime = 600000;  // 10 minutes
+const unsigned long motorRunTime = 300000;  // 5 minutes
 
 // Firebase settings
 #define API_KEY "AIzaSyDUqlpTWmXr4vicykOx0dBqlVnJQyVkZDI"
-#define USER_EMAIL "test123@gmail.com"
+#define USER_EMAIL "bangustest@gmail.com"
 #define USER_PASSWORD "123456"
 #define DATABASE_URL "https://thesis-app-3b413-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
@@ -76,6 +75,8 @@ unsigned long lastTokenRefresh = 0;
 unsigned long tokenExpirationTime = 0;
 const unsigned long TOKEN_REFRESH_INTERVAL = 3600000; // 1 hour
 unsigned long lastThresholdCheck = 0;
+unsigned long lastHeartbeatTime = 0;
+const unsigned long HEARTBEAT_INTERVAL = 300000; // 5 minutes
 
 //Motor control
 enum MotorState { MOTOR_OFF, MOTOR_AUTO_RUNNING, MOTOR_MANUAL_RUNNING };
@@ -106,9 +107,6 @@ void tokenStatusCallback(TokenInfo info);
 unsigned long getTime();
 void runMotor();
 void checkMotorTimers();
-void startMotorManual();
-void stopMotorManual();
-void checkManualMotor();
 void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidity);
 void sendSensorData(float temp, float ph, float ec, float tds, float turbidity);
 void createNotification(const char* type, const char* message, FirebaseJson* details = NULL);
@@ -125,7 +123,6 @@ float calculateCalibratedPH(float voltage) {
 }
 
 float calculateCalibratedEC(float voltage, float tempC) {
-  // DFR0300-H specific calibration
   // Convert voltage to basic EC value
   float rawEC = (voltage / VREF) * 200.0 * EC_K_VALUE;
   
@@ -134,14 +131,11 @@ float calculateCalibratedEC(float voltage, float tempC) {
 }
 
 float calculateTDS(float ec, float tempC) {
-  // SEN0244 specific TDS calculation
-  // For SEN0244, TDS is typically 0.5 * EC at 25°C
   float compensatedEC = compensateECForTemperature(ec, tempC);
   return compensatedEC * TDS_CONVERSION_FACTOR;
 }
 
 float calculateCalibratedTurbidity(float voltage) {
-  // TS300-B specific calibration for turbidity
   if (voltage >= CLEAR_WATER_VOLTAGE) {
     return BRACKISH_MIN_NTU;
   } else if (voltage <= MAX_TURBIDITY_VOLTAGE) {
@@ -334,19 +328,6 @@ void runMotor() {
 
   Serial.println("Motor started");
 
-  // unsigned long startMillis = millis();
-  // while (millis() - startMillis < motorRunTime) {
-  //   delay(100);
-  // }
-
-  // Stop the motor
-  // ledcWrite(pwmPin, 0);
-  // digitalWrite(motorPin1, LOW);
-  // digitalWrite(motorPin2, LOW);
-  // Serial.println("Motor stopped");
-
-  // ledcDetach(pwmPin);
-
   motorStartTime = millis();
   motorIsRunning = true;
 }
@@ -403,49 +384,6 @@ void checkMotorTimers() {
     }
   } else {
     Serial.println("Failed to get timers from Firebase: " + fbdo.errorReason());
-  }
-}
-
-// Function to start the motor using the new LEDC API
-void startMotorManual() {
-  pinMode(motorPin1, OUTPUT);
-  pinMode(motorPin2, OUTPUT);
-
-  // Attach PWM to the pin using the new API
-  ledcAttach(pwmPin, pwmFreq, pwmResolution);
-
-  // Set motor direction (adjust polarity as needed)
-  digitalWrite(motorPin1, LOW);
-  digitalWrite(motorPin2, HIGH);
-  ledcWrite(pwmPin, motorSpeed);
-  Serial.println("Manual motor started");
-}
-// Function to stop the motor using the new LEDC API
-void stopMotorManual() {
-  ledcWrite(pwmPin, 0);
-  digitalWrite(motorPin1, LOW);
-  digitalWrite(motorPin2, LOW);
-  ledcDetach(pwmPin);
-  Serial.println("Manual motor stopped");
-  createNotification("feeding_complete", "Manual feeding session completed");
-}
-
-// Function to check the "feednow" field in Firebase for manual control
-void checkManualMotor() {
-  String feednowPath = "/BANGUS/" + uid + "/feedNow";
-  if (Firebase.RTDB.getBool(&fbdo, feednowPath.c_str())) {
-    bool feednow = fbdo.boolData();
-
-    if (feednow && !manualMotorActive) {
-      startMotorManual();
-      manualMotorActive = true;
-    }
-    else if (!feednow && manualMotorActive) {
-      stopMotorManual();
-      manualMotorActive = false;
-    }
-  } else {
-    Serial.println("Failed to read feednow value from Firebase");
   }
 }
 
@@ -563,6 +501,24 @@ void loop() {
     return;
   }
 
+  if(Firebase.ready() && (currentMillis - lastHeartbeatTime >= HEARTBEAT_INTERVAL)) {
+    lastHeartbeatTime = currentMillis;
+
+    // Update device status with current timestamp
+    String statusPath = "/BANGUS/" + uid + "/deviceStatus";
+    FirebaseJson statusJson;
+    unsigned long timestamp = getTime();
+    statusJson.set("lastSeen", timestamp);
+    statusJson.set("ipAddress", WiFi.localIP().toString());
+    statusJson.set("rssi", WiFi.RSSI()); // Signal strength
+
+    if(Firebase.RTDB.setJSON(&fbdo, statusPath.c_str(), &statusJson)) {
+      Serial.println("Device status updated"); 
+    } else {
+      Serial.println("Failed to update device status: " + fbdo.errorReason());
+    }
+  }
+
   // Handle Firebase reconnection and token refresh
   if (!Firebase.ready() || (millis() - lastTokenRefresh > TOKEN_REFRESH_INTERVAL)) {
     Serial.println("Refreshing Firebase connection...");
@@ -588,7 +544,6 @@ void loop() {
     // Only check for new motor activations if motor is not already running
     if(!motorIsRunning) {
       checkMotorTimers();
-      checkManualMotor();
     }
   }
 

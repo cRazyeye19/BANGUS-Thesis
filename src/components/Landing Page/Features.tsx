@@ -15,7 +15,7 @@ const features = [
     avatar: PortableImage,
   },
   {
-    text: "Automate your feeding schedules with Bangus - no more manual feeding for you or your team.",
+    text: "Automate your feeding schedules with Bangus - set it up once and let the system handle the rest.",
     title: "Automated Feeding",
     avatar: FeedingImage,
   },

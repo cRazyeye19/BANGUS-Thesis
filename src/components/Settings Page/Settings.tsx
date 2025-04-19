@@ -1,6 +1,7 @@
 import SensorsForm from "./SensorsForm";
 import Header from "../Dashboard Page/Header";
 import Population from "../Fish Feeding Page/Population";
+import DeviceStatus from "../DeviceStatus/DeviceStatus";
 
 const Settings = () => {
   return (
@@ -11,6 +12,10 @@ const Settings = () => {
           <h1 className="app-header text-2xl font-semibold text-gray-900 mb-8">
             Device Configuration
           </h1>
+
+          <div className="mb-8">
+            <DeviceStatus />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
             <div>

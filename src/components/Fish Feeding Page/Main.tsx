@@ -15,8 +15,8 @@ const Main = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [currentLifeStage, setCurrentLifeStage] = useState("fingerling");
-  const [fishPopulation, setFishPopulation] = useState(100);
-  const [feedDuration, setFeedDuration] = useState(5);
+  const [, setFishPopulation] = useState(100);
+  const [, setFeedDuration] = useState(5);
   const [feedingSessions, setFeedingSessions] = useState(4);
 
   useEffect(() => {
@@ -57,43 +57,7 @@ const Main = () => {
     return () => unsubscribe();
   }, [currentLifeStage]);
 
-  const triggerFeedNow = async () => {
-    const uid = getAuth().currentUser?.uid;
-    try {
-      // Send feed command with life stage parameters
-      await set(ref(database, `BANGUS/${uid}/feedNow`), {
-        active: true,
-        lifeStage: currentLifeStage,
-        population: fishPopulation,
-        duration: feedDuration,
-      });
-
-      console.log("Feed now triggered with life stage:", currentLifeStage);
-      toast.success("Feed now triggered successfully!", {
-        position: "top-right",
-        autoClose: 2000,
-        hideProgressBar: true,
-      });
-
-      // Reset feedNow to false after the specified duration + buffer time
-      setTimeout(async () => {
-        await set(ref(database, `BANGUS/${uid}/feedNow`), {
-          active: false,
-          lifeStage: currentLifeStage,
-          population: fishPopulation,
-          duration: feedDuration,
-        });
-        console.log("Feed now reset");
-      }, (feedDuration + 2) * 1000); // Add 2 seconds buffer
-    } catch (error) {
-      console.log("Error triggering feed now:", error);
-      toast.error("An error occurred. Please try again.", {
-        position: "top-right",
-        autoClose: 2000,
-        hideProgressBar: true,
-      });
-    }
-  };
+  // Removed triggerFeedNow function
 
   const getNextTimerIndex = async (uid: string) => {
     const timersRef = ref(database, `BANGUS/${uid}/timers`);
@@ -263,12 +227,7 @@ const Main = () => {
             <Clock />
             <div className="flex flex-col gap-4 items-center">
               <div className="flex gap-4">
-                <button
-                  onClick={triggerFeedNow}
-                  className="px-6 py-2 bg-bangus-teal text-white rounded-full hover:bg-bangus-cyan transition-colors"
-                >
-                  Feed Now
-                </button>
+                {/* Removed Feed Now button */}
                 <button
                   onClick={() => {
                     setShowTime(!showTime);
@@ -276,7 +235,7 @@ const Main = () => {
                       cancelEditing();
                     }
                   }}
-                  className="px-6 py-2 bg-gray-50 text-gray-500 rounded-full hover:text-bangus-teal transition-colors"
+                  className="px-6 py-2 bg-bangus-teal text-white rounded-full hover:bg-bangus-cyan transition-colors"
                 >
                   {editingId
                     ? "Cancel Edit"
