@@ -19,15 +19,38 @@ const int motorPin1 = 26;  // L298N IN1 (Motor A)
 const int motorPin2 = 27;  // L298N IN2 (Motor A)
 const int pwmPin = 14;     // L298N ENA (PWM for Motor A)
 
-// Constants for sensors
+// Constants for sensors - Updated for specific models
 const float VREF = 3.3;
 const int ADC_RESOLUTION = 4095;
-const float TURBIDITY_VREF = 5.0;
+const float TURBIDITY_VREF = 5.0;  // TS300-B typically uses 5V reference
 const float PH_VREF = 3.3;
-const float CLEAR_WATER_VOLTAGE = 3.3;
-const float MAX_TURBIDITY_VOLTAGE = 1.0;
-const float MAX_NTU = 500.0;
-const float TDS_CONVERSION_FACTOR = 0.5;
+const float CLEAR_WATER_VOLTAGE = 4.1;  // TS300-B: ~4.1V for clear water
+const float MAX_TURBIDITY_VOLTAGE = 2.5;  // TS300-B: ~2.5V for very turbid water
+// const float MAX_NTU = 500.0;
+const float TDS_CONVERSION_FACTOR = 0.5;  // SEN0244 specific factor
+
+const float PH_CALIBRATION_POINT_1_VOLTAGE = 2.5;  // Voltage at pH 7.0 (neutral)
+const float PH_CALIBRATION_POINT_1_PH = 7.0;
+const float PH_CALIBRATION_POINT_2_VOLTAGE = 2.0;  // Voltage at pH 4.0 (acidic)
+const float PH_CALIBRATION_POINT_2_PH = 4.0;
+const float PH_SLOPE = (PH_CALIBRATION_POINT_2_PH - PH_CALIBRATION_POINT_1_PH) / 
+                       (PH_CALIBRATION_POINT_2_VOLTAGE - PH_CALIBRATION_POINT_1_VOLTAGE);
+
+const float EC_K_VALUE = 1.0;  // K=1.0 is standard for DFR0300-H
+const float EC_TEMP_COMPENSATION = 0.019; // 1.9% per degree Celsius
+
+const float BRACKISH_MIN_NTU = 25.0;  // TS300-B can measure down to 0 NTU
+const float BRACKISH_MAX_NTU = 80.0; // Maximum NTU for very turbid water
+
+// Temperature compensation reference (25°C is standard)
+const float TEMP_COMPENSATION_REF = 25.0;
+
+// Add function prototypes
+float compensateECForTemperature(float ec, float tempC);
+float calculateCalibratedPH(float voltage);
+float calculateCalibratedEC(float voltage, float tempC);
+float calculateCalibratedTurbidity(float voltage);
+float calculateTDS(float ec, float tempC);
 
 // Motor control constants
 const int pwmFreq = 5000;     // PWM frequency (5 kHz)
@@ -63,7 +86,7 @@ bool motorUpdateInProgress = false;
 
 // Timing variables
 unsigned long lastRealTimeUpdate = 0;
-const unsigned long REALTIME_UPDATE_INTERVAL = 60000;  // 1 minute
+const unsigned long REALTIME_UPDATE_INTERVAL = 60000;
 
 unsigned long lastSensorDataSend = 0;
 const unsigned long SENSOR_DATA_INTERVAL = 3600000;  // 1 hour in milliseconds (1*60*60*1000)
@@ -81,7 +104,6 @@ DallasTemperature sensors(&oneWire);
 // Function prototypes
 void tokenStatusCallback(TokenInfo info);
 unsigned long getTime();
-// String calculateOxygenStatus(float ec, float tds, float temp, float ph, float turbidity);
 void runMotor();
 void checkMotorTimers();
 void startMotorManual();
@@ -91,6 +113,46 @@ void updateRealTimeData(float temp, float ph, float ec, float tds, float turbidi
 void sendSensorData(float temp, float ph, float ec, float tds, float turbidity);
 void createNotification(const char* type, const char* message, FirebaseJson* details = NULL);
 void checkSensorThresholds(float temp, float ph, float ec, float tds, float turbidity);
+
+float compensateECForTemperature(float ec, float tempC) {
+  // Standard temperature compensation formula
+  return ec / (1.0 + EC_TEMP_COMPENSATION * (tempC - TEMP_COMPENSATION_REF));
+}
+
+float calculateCalibratedPH(float voltage) {
+  // Two-point calibration formula for pH
+  return PH_CALIBRATION_POINT_1_PH + PH_SLOPE * (voltage - PH_CALIBRATION_POINT_1_VOLTAGE);
+}
+
+float calculateCalibratedEC(float voltage, float tempC) {
+  // DFR0300-H specific calibration
+  // Convert voltage to basic EC value
+  float rawEC = (voltage / VREF) * 200.0 * EC_K_VALUE;
+  
+  // Apply temperature compensation
+  return compensateECForTemperature(rawEC, tempC);
+}
+
+float calculateTDS(float ec, float tempC) {
+  // SEN0244 specific TDS calculation
+  // For SEN0244, TDS is typically 0.5 * EC at 25°C
+  float compensatedEC = compensateECForTemperature(ec, tempC);
+  return compensatedEC * TDS_CONVERSION_FACTOR;
+}
+
+float calculateCalibratedTurbidity(float voltage) {
+  // TS300-B specific calibration for turbidity
+  if (voltage >= CLEAR_WATER_VOLTAGE) {
+    return BRACKISH_MIN_NTU;
+  } else if (voltage <= MAX_TURBIDITY_VOLTAGE) {
+    return BRACKISH_MAX_NTU;
+  } else {
+    // Linear interpolation between clear and turbid water points
+    return BRACKISH_MIN_NTU + ((CLEAR_WATER_VOLTAGE - voltage) * 
+                              ((BRACKISH_MAX_NTU - BRACKISH_MIN_NTU) / 
+                               (CLEAR_WATER_VOLTAGE - MAX_TURBIDITY_VOLTAGE)));
+  }
+}
 
 // Time and sensor functions
 unsigned long getTime() {
@@ -102,16 +164,6 @@ unsigned long getTime() {
   time(&now);
   return now;
 }
-
-// String calculateOxygenStatus(float ec, float tds, float temperature, float ph, float turbidity) {
-//   if (temperature > 30 || ph < 6.5 || ph > 8.5 || ec > 800 || tds > 500 || turbidity > 1000) {
-//     return "Low";
-//   } else if (temperature < 25 && ph >= 6.5 && ph <= 8.5 && ec < 200 && tds < 150 && turbidity < 500) {
-//     return "High";
-//   } else {
-//     return "Normal";
-//   }
-// }
 
 void createNotification(const char* type, const char* message, FirebaseJson* details) {
   if(!Firebase.ready()) {
@@ -539,37 +591,50 @@ void loop() {
       checkManualMotor();
     }
   }
-  
+
   // Read sensors at regular intervals, separate from motor control
   if (currentMillis - lastSensorRead >= SENSOR_READ_INTERVAL) {
     lastSensorRead = currentMillis;
     
-    // Read sensors
+    // Read temperature first (needed for other sensor compensation)
     sensors.requestTemperatures();
     float temperatureC = sensors.getTempCByIndex(0);
     
+    // Read EC with DFR0300-H specific calibration
     int ecRaw = analogRead(EC_PIN);
     float ecVoltage = ecRaw * (VREF / ADC_RESOLUTION);
-    float ecValue = (ecVoltage / VREF) * 800.0;
-    float tdsValue = ecValue * TDS_CONVERSION_FACTOR;
+    float ecValue = calculateCalibratedEC(ecVoltage, temperatureC);
     
+    // Calculate TDS from EC using SEN0244 specific formula
+    float tdsValue = calculateTDS(ecValue, temperatureC);
+    
+    // Read pH with improved calibration
     int phRaw = analogRead(PH_PIN);
     float phVoltage = phRaw * (PH_VREF / ADC_RESOLUTION);
-    float phValue = 10.0 + ((2.5 - phVoltage) * 3.5);
+    float phValue = calculateCalibratedPH(phVoltage);
     
+    // Read turbidity with TS300-B specific calibration
     int turbidityRaw = analogRead(TURBIDITY_PIN);
     float turbidityVoltage = turbidityRaw * (TURBIDITY_VREF / ADC_RESOLUTION);
+    float turbidityNTU = calculateCalibratedTurbidity(turbidityVoltage);
     
-    float turbidityNTU = 0.0;
-    if (turbidityVoltage >= CLEAR_WATER_VOLTAGE) {
-      turbidityNTU = 15;  // Minimum NTU for brackish water
-    } else if (turbidityVoltage <= MAX_TURBIDITY_VOLTAGE) {
-      turbidityNTU = MAX_NTU;  // Very turbid water
-    } else {
-      turbidityNTU = 15 + ((CLEAR_WATER_VOLTAGE - turbidityVoltage) * 
-                           ((MAX_NTU - 15) / (CLEAR_WATER_VOLTAGE - MAX_TURBIDITY_VOLTAGE)));
-    }
-    turbidityNTU = fmax(15.0, turbidityNTU);
+    // Apply smoothing filter (simple moving average)
+    static float lastTempC = temperatureC;
+    static float lastEC = ecValue;
+    static float lastPH = phValue;
+    static float lastTurbidity = turbidityNTU;
+    
+    // Simple smoothing (can be expanded to a proper moving average if needed)
+    temperatureC = (temperatureC + lastTempC) / 2.0;
+    ecValue = (ecValue + lastEC) / 2.0;
+    phValue = (phValue + lastPH) / 2.0;
+    turbidityNTU = (turbidityNTU + lastTurbidity) / 2.0;
+    
+    // Update last values for next smoothing
+    lastTempC = temperatureC;
+    lastEC = ecValue;
+    lastPH = phValue;
+    lastTurbidity = turbidityNTU;
     
     // Print sensor values
     Serial.printf("Temperature: %.2f °C\n", temperatureC);

@@ -68,6 +68,10 @@ const SensorsForm = () => {
     setIsLoading(true);
 
     const sensorDataUpdates = {
+      temperature: {
+        Minimum: tempNormal,
+        Maximum: tempDanger,
+      },
       ph: {
         Minimum: phNormal,
         Maximum: phDanger,

@@ -6,7 +6,7 @@ import { getAuth } from "firebase/auth";
 import { ref, remove } from "firebase/database";
 import { database } from "../../config/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faBell } from "@fortawesome/free-solid-svg-icons";
 import NotificationItem from "./NotificationItem";
 import NotificationHeader from "./NotificationHeader";
 import EmptyNotifications from "./EmptyNotifications";
@@ -15,6 +15,7 @@ import PermissionPrompt from "./PermissionPrompt";
 const NotificationsCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const { notifications, unreadCount, hasPermission, requestPermission } =
     useNotifications();
 
@@ -38,13 +39,15 @@ const NotificationsCenter = () => {
     setIsOpen(!isOpen);
   };
 
+  const handleViewAllNotifications = () => {
+    setShowAllNotifications(true);
+    if (!isMobile) {
+      setIsOpen(false);
+    }
+  };
+
   const handleDeleteAllNotifications = async () => {
     await deleteAllNotifications();
-    toast.success("All notifications cleared", {
-      position: "top-right",
-      autoClose: 2000,
-      hideProgressBar: true,
-    });
   };
 
   const handleDeleteNotification = async (notificationId: string) => {
@@ -139,11 +142,55 @@ const NotificationsCenter = () => {
       
       {notifications.length > 5 && (
         <div className="p-3 bg-gray-50 border-t border-gray-200 text-center">
-          <button className="text-sm text-bangus-cyan hover:text-bangus-cyan-dark font-medium">
+          <button 
+            onClick={handleViewAllNotifications}
+            className="text-sm text-bangus-cyan hover:text-bangus-cyan-dark font-medium"
+          >
             View all notifications
           </button>
         </div>
       )}
+    </div>
+  );
+
+  // Full screen modal for all notifications
+  const AllNotificationsModal = () => (
+    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+      <div className="py-4 px-4 border-b border-gray-200 flex justify-between items-center">
+        <div className="flex items-center">
+          <button 
+            onClick={() => setShowAllNotifications(false)}
+            className="mr-3 text-gray-600"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} />
+          </button>
+          <h1 className="text-xl font-semibold text-gray-800">All Notifications</h1>
+        </div>
+        {notifications.length > 0 && (
+          <button
+            onClick={handleDeleteAllNotifications}
+            className="text-xs text-red-500 hover:text-red-700 font-medium"
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+      
+      <div className="flex-1 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <EmptyNotifications />
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {notifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onDelete={handleDeleteNotification}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 
@@ -165,6 +212,8 @@ const NotificationsCenter = () => {
       {isOpen && (
         isMobile ? <MobileNotificationsModal /> : <DesktopNotificationsDropdown />
       )}
+
+      {showAllNotifications && <AllNotificationsModal />}
     </div>
   );
 };
