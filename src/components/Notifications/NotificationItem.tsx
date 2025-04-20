@@ -7,25 +7,28 @@ interface NotificationItemProps {
   onDelete: (id: string) => Promise<void>;
 }
 
-const NotificationItem = ({ notification, onDelete }: NotificationItemProps) => {
+const NotificationItem = ({
+  notification,
+  onDelete,
+}: NotificationItemProps) => {
   const formatTimeStamp = (timestamp: number) => {
     const timestampMs = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-    
+
     const date = new Date(timestampMs);
-    
+
     // Format date as DD/MM/YYYY
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
-    
+
     // Format time in 12-hour format with AM/PM
-    const timeOptions: Intl.DateTimeFormatOptions = { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: true 
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     };
     const timeString = date.toLocaleTimeString([], timeOptions);
-    
+
     return `${day}/${month}/${year} ${timeString}`;
   };
 
@@ -35,6 +38,8 @@ const NotificationItem = ({ notification, onDelete }: NotificationItemProps) => 
         return "🍽️";
       case "sensor_alert":
         return "⚠️";
+      case "schedule_conflict":
+        return "⏱️";
       default:
         return "📌";
     }
@@ -63,7 +68,8 @@ const NotificationItem = ({ notification, onDelete }: NotificationItemProps) => 
           </div>
           {notification.details && notification.details.sensor && (
             <div className="mt-1 text-xs text-gray-600 bg-gray-100 rounded-md px-2 py-1 inline-block">
-              {notification.details.sensor}: {notification.details.value.toFixed(2)} 
+              {notification.details.sensor}:{" "}
+              {notification.details.value.toFixed(2)}
               {notification.details.status === "above" ? " > " : " < "}
               {notification.details.threshold.toFixed(2)}
             </div>

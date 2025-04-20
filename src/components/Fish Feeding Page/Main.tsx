@@ -8,6 +8,7 @@ import { database } from "../../config/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faEdit } from "@fortawesome/free-solid-svg-icons";
 import { Schedule } from "../../types/schedule";
+import { createNotification } from "../../utils/notifications";
 
 const Main = () => {
   const [showTime, setShowTime] = useState(false);
@@ -105,26 +106,82 @@ const Main = () => {
         return;
       }
 
+      // Check for conflicts with existing schedules
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const newTimeInMinutes = startHour * 60 + startMinute;
+
+      // Check if the new time is within 5 minutes of any existing schedule
+      const conflictingSchedule = schedules.find(schedule => {
+        const [scheduleHour, scheduleMinute] = schedule.start.split(":").map(Number);
+        const scheduleTimeInMinutes = scheduleHour * 60 + scheduleMinute;
+
+        const timeDifference = Math.abs(
+          newTimeInMinutes - scheduleTimeInMinutes
+        );
+
+        return timeDifference < 5 || (1440 - timeDifference) < 5;
+      });
+      
+      if (conflictingSchedule) {
+        // Format the conflicting time for display
+        const conflictTime = new Date(
+          `2000-01-01T${conflictingSchedule.start}`
+        ).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+        
+        toast.error(
+          <div>
+            <p>Schedules must be at least 5 minutes apart</p>
+            <p className="text-xs mt-1">
+              Conflicts with existing schedule at {conflictTime}
+            </p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 4000,
+            hideProgressBar: false,
+            closeOnClick: true,
+          }
+        );
+        
+        // Still create a notification for the system log
+        await createNotification(
+          "schedule_conflict",
+          "Feeding schedule conflict prevented",
+          {
+            description: "Schedules must be at least 5 minutes apart to ensure proper operation",
+            attemptedTime: startTime,
+            conflictingTime: conflictingSchedule.start
+          }
+        );
+        
+        return;
+      }
+
+      // Continue with creating the schedule as before
       const nextIndex = await getNextTimerIndex(uid);
       const timerId = `timer${nextIndex}`;
+      const timerRef = ref(database, `BANGUS/${uid}/timers/${timerId}`);
 
-      await set(ref(database, `BANGUS/${uid}/timers/${timerId}`), {
+      await set(timerRef, {
         start: startTime,
         lifeStage: currentLifeStage,
       });
 
-      console.log("Schedule created with ID:", timerId);
-      toast.success("Schedule created successfully!", {
+      setStartTime("");
+      setShowTime(false);
+
+      toast.success("Feeding schedule created", {
         position: "top-right",
         autoClose: 2000,
         hideProgressBar: true,
       });
-
-      setStartTime("");
-      setShowTime(false);
     } catch (error) {
-      console.log("Error creating schedule:", error);
-      toast.error("Error creating schedule: " + error, {
+      console.error("Error creating schedule:", error);
+      toast.error("Failed to create schedule", {
         position: "top-right",
         autoClose: 2000,
         hideProgressBar: true,
@@ -144,6 +201,57 @@ const Main = () => {
 
     const uid = getAuth().currentUser?.uid;
     try {
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const newTimeInMinutes = startHour * 60 + startMinute;
+      
+      const conflictingSchedule = schedules.find(schedule => {
+        if (schedule.id === editingId) return false;
+        
+        const [scheduleHour, scheduleMinute] = schedule.start.split(":").map(Number);
+        const scheduleTimeInMinutes = scheduleHour * 60 + scheduleMinute;
+      
+        const timeDifference = Math.abs(newTimeInMinutes - scheduleTimeInMinutes);
+      
+        return timeDifference < 5 || (1440 - timeDifference) < 5;
+      });
+      
+      if (conflictingSchedule) {
+        const conflictTime = new Date(
+          `2000-01-01T${conflictingSchedule.start}`
+        ).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+        
+        toast.error(
+          <div>
+            <p>Schedules must be at least 5 minutes apart</p>
+            <p className="text-xs mt-1">
+              Conflicts with existing schedule at {conflictTime}
+            </p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 4000,
+            hideProgressBar: false,
+            closeOnClick: true,
+          }
+        );
+        
+        await createNotification(
+          "schedule_conflict",
+          "Feeding schedule update conflict prevented",
+          {
+            description: "Schedules must be at least 5 minutes apart to ensure proper operation",
+            attemptedTime: startTime,
+            conflictingTime: conflictingSchedule.start
+          }
+        );
+        
+        return;
+      }
+
       await set(ref(database, `BANGUS/${uid}/timers/${editingId}`), {
         start: startTime,
         lifeStage: currentLifeStage,
@@ -235,7 +343,7 @@ const Main = () => {
                       cancelEditing();
                     }
                   }}
-                  className="px-6 py-2 bg-bangus-teal text-white rounded-full hover:bg-bangus-cyan transition-colors"
+                  className="px-6 py-2 bg-bangus-cyan text-white rounded-full hover:bg-bangus-teal transition-colors"
                 >
                   {editingId
                     ? "Cancel Edit"
@@ -262,9 +370,14 @@ const Main = () => {
                       className="px-2 py-1 border rounded-md text-sm"
                     />
                   </div>
+                  
+                  <p className="text-xs text-gray-500 italic mt-1 text-center">
+                    Note: Schedules must be at least 5 minutes apart to prevent conflicts
+                  </p>
+                  
                   <button
                     onClick={editingId ? updateSchedule : createSchedule}
-                    className="px-6 py-2 bg-bangus-teal text-white rounded-full hover:bg-bangus-cyan transition-colors"
+                    className="px-6 py-2 bg-bangus-cyan text-white rounded-full hover:bg-bangus-teal transition-colors"
                   >
                     {editingId ? "Update Schedule" : "Add Schedule"}
                   </button>
