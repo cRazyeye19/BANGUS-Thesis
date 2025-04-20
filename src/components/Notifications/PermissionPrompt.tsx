@@ -2,10 +2,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBell } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useState } from "react";
 import NotificationInstructions from "./NotificationInstructions";
-
-interface PermissionPromptProps {
-  onRequestPermission: () => Promise<void>;
-}
+import { PermissionPromptProps } from "../../types/notifications";
 
 const PermissionPrompt = ({ onRequestPermission }: PermissionPromptProps) => {
   const [isMobile, setIsMobile] = useState(false);
@@ -14,10 +11,13 @@ const PermissionPrompt = ({ onRequestPermission }: PermissionPromptProps) => {
 
   useEffect(() => {
     const userAgent = navigator.userAgent;
-    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const isMobileDevice =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        userAgent
+      );
     setIsMobile(isMobileDevice);
 
-    setIsSupported('Notification' in window);
+    setIsSupported("Notification" in window);
   }, []);
 
   const handleRequestPermission = async () => {
@@ -58,8 +58,8 @@ const PermissionPrompt = ({ onRequestPermission }: PermissionPromptProps) => {
           </div>
           <div className="flex-1">
             <p className="text-sm text-gray-600">
-              {isMobile 
-                ? "Add BANGUS to your home screen for notifications" 
+              {isMobile
+                ? "Add BANGUS to your home screen for notifications"
                 : "Enable browser notifications to stay updated"}
             </p>
             <button
@@ -71,7 +71,7 @@ const PermissionPrompt = ({ onRequestPermission }: PermissionPromptProps) => {
           </div>
         </div>
       </div>
-      
+
       {showModal && <NotificationInstructions onClose={closeModal} />}
     </>
   );
