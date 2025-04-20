@@ -141,8 +141,8 @@ const Main = () => {
           </div>,
           {
             position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
+            autoClose: 2000,
+            hideProgressBar: true,
             closeOnClick: true,
           }
         );
@@ -233,8 +233,8 @@ const Main = () => {
           </div>,
           {
             position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
+            autoClose: 2000,
+            hideProgressBar: true,
             closeOnClick: true,
           }
         );
