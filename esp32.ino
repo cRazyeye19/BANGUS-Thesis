@@ -19,21 +19,21 @@ const int motorPin1 = 26;  // L298N IN1 (Motor A)
 const int motorPin2 = 27;  // L298N IN2 (Motor A)
 const int pwmPin = 14;     // L298N ENA (PWM for Motor A)
 
-// Constants for sensors - Updated for specific models
 const float VREF = 3.3;
-const int ADC_RESOLUTION = 4095;
+const int ADC_RESOLUTION = 4095;  // ESP32 has 12-bit ADC (0-4095)
 const float TURBIDITY_VREF = 5.0;
-const float PH_VREF = 3.3;
 const float CLEAR_WATER_VOLTAGE = 4.1;
 const float MAX_TURBIDITY_VOLTAGE = 2.5; 
 const float TDS_CONVERSION_FACTOR = 0.5; 
 
-const float PH_CALIBRATION_POINT_1_VOLTAGE = 2.5;  
-const float PH_CALIBRATION_POINT_1_PH = 7.0;
-const float PH_CALIBRATION_POINT_2_VOLTAGE = 2.0;
-const float PH_CALIBRATION_POINT_2_PH = 4.0;
-const float PH_SLOPE = (PH_CALIBRATION_POINT_2_PH - PH_CALIBRATION_POINT_1_PH) / 
-                       (PH_CALIBRATION_POINT_2_VOLTAGE - PH_CALIBRATION_POINT_1_VOLTAGE);
+// pH calibration constants for PH4502C
+const float PH_VREF = 3.3;
+const float PH_CALIBRATION_POINT_1_VOLTAGE = 2.5;  // Voltage at pH 7
+const float PH_CALIBRATION_POINT_1_PH = 7.0;       // pH value at first point
+const float PH_CALIBRATION_POINT_2_VOLTAGE = 3.0;  // Voltage at pH 4
+const float PH_CALIBRATION_POINT_2_PH = 4.0;       // pH value at second point
+const float PH_STEP = (PH_CALIBRATION_POINT_2_PH - PH_CALIBRATION_POINT_1_PH) / 
+                      (PH_CALIBRATION_POINT_2_VOLTAGE - PH_CALIBRATION_POINT_1_VOLTAGE);
 
 const float EC_K_VALUE = 1.0;  // K=1.0 is standard for DFR0300-H
 const float EC_TEMP_COMPENSATION = 0.019; // 1.9% per degree Celsius
@@ -60,7 +60,7 @@ const unsigned long motorRunTime = 300000;  // 5 minutes
 
 // Firebase settings
 #define API_KEY "AIzaSyDUqlpTWmXr4vicykOx0dBqlVnJQyVkZDI"
-#define USER_EMAIL "bangustest@gmail.com"
+#define USER_EMAIL "test123@gmail.com"
 #define USER_PASSWORD "123456"
 #define DATABASE_URL "https://thesis-app-3b413-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
@@ -119,20 +119,37 @@ float compensateECForTemperature(float ec, float tempC) {
 
 float calculateCalibratedPH(float voltage) {
   // Two-point calibration formula for pH
-  return PH_CALIBRATION_POINT_1_PH + PH_SLOPE * (voltage - PH_CALIBRATION_POINT_1_VOLTAGE);
+  float calculatedPH = PH_CALIBRATION_POINT_1_PH + ((PH_CALIBRATION_POINT_1_VOLTAGE - voltage) / PH_STEP);
+
+  // Ensure pH value is within the valid range (0-14)
+  if(calculatedPH < 0) {
+    calculatedPH = 0;
+  }
+  if(calculatedPH > 14) {
+    calculatedPH = 14;
+  }
+
+  return calculatedPH;
 }
 
 float calculateCalibratedEC(float voltage, float tempC) {
-  // Convert voltage to basic EC value
+  // Convert voltage to basic EC value (µS/cm)
   float rawEC = (voltage / VREF) * 200.0 * EC_K_VALUE;
-  
+
   // Apply temperature compensation
-  return compensateECForTemperature(rawEC, tempC);
+  float compensatedEC = rawEC / (1.0 + EC_TEMP_COMPENSATION * (tempC - TEMP_COMPENSATION_REF));
+
+  // Ensure we don't return negative values
+  if (compensatedEC < 0) {
+    compensatedEC = 0.0;
+  }
+
+  return compensatedEC;
 }
 
 float calculateTDS(float ec, float tempC) {
   float compensatedEC = compensateECForTemperature(ec, tempC);
-  return compensatedEC * TDS_CONVERSION_FACTOR;
+  return compensatedEC * TDS_CONVERSION_FACTOR * 1000;
 }
 
 float calculateCalibratedTurbidity(float voltage) {
@@ -444,7 +461,7 @@ void setup() {
   
   // Uncomment to reset saved settings during testing
   wm.resetSettings();
-  
+
   // Set a custom AP name and password for configuration mode
   bool res = wm.autoConnect("BANGUS", "bangus123");
   
@@ -565,8 +582,14 @@ void loop() {
     
     // Read pH with improved calibration
     int phRaw = analogRead(PH_PIN);
-    float phVoltage = phRaw * (PH_VREF / ADC_RESOLUTION);
+    float phVoltage = phRaw * PH_VREF / ADC_RESOLUTION;
     float phValue = calculateCalibratedPH(phVoltage);
+
+    // Debug pH sensor readings
+    Serial.println("pH Sensor Debug:");
+    Serial.print("  Raw ADC: "); Serial.println(phRaw);
+    Serial.print("  Voltage: "); Serial.print(phVoltage, 3); Serial.println(" V");
+    Serial.print("  Calculated pH: "); Serial.println(phValue, 2);
     
     // Read turbidity with TS300-B specific calibration
     int turbidityRaw = analogRead(TURBIDITY_PIN);
