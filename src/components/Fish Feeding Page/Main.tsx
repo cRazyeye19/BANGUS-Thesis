@@ -32,8 +32,8 @@ const Main = () => {
         return;
       }
 
-      const scheduleList: Schedule[] = Object.entries(data).map(
-        ([id, value]: [string, any]) => ({
+      const scheduleList: Schedule[] = Object.entries(data as Record<string, Schedule>).map(
+        ([id, value]) => ({
           id,
           start: value.start,
           lifeStage: value.lifeStage || currentLifeStage,

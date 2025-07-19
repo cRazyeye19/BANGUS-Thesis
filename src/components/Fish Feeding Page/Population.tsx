@@ -5,6 +5,7 @@ import { database } from "../../config/firebase";
 import { toast } from "react-toastify";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFish } from "@fortawesome/free-solid-svg-icons";
+import { FishData } from "../../types/fish";
 
 const LIFE_STAGES = [
   {
@@ -76,7 +77,7 @@ const Population = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentLifeStage]);
 
   const updateLifeStage = async (stage: string) => {
     setCurrentLifeStage(stage);
@@ -95,7 +96,7 @@ const Population = () => {
       if (!uid) return;
 
       try {
-        const updates: { [key: string]: any } = {
+        const updates: FishData = {
           lifeStage: stage,
         };
 
