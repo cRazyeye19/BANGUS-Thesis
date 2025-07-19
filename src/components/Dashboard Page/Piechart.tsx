@@ -1,19 +1,10 @@
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-
-const pieData1 = [
-  { name: "Green", value: 63 },
-  { name: "Light Green", value: 37 },
-];
-
-const pieData2 = [
-  { name: "Navy", value: 47.4 },
-  { name: "Blue", value: 33.1 },
-  { name: "Light Blue", value: 12.5 },
-  { name: "Very Light Blue", value: 7 },
-];
-
-const COLORS1 = ["#22c55e", "#86efac"];
-const COLORS2 = ["#1e3a8a", "#3b82f6", "#93c5fd", "#dbeafe"];
+import {
+  PIE_CHART_DATA_1,
+  PIE_CHART_DATA_2,
+  PIE_CHART_COLORS_1,
+  PIE_CHART_COLORS_2
+} from "../../constants/dashboard";
 
 const Piechart = () => {
   return (
@@ -24,14 +15,14 @@ const Piechart = () => {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={pieData1}
+                data={PIE_CHART_DATA_1}
                 innerRadius={60}
                 outerRadius={80}
                 paddingAngle={0}
                 dataKey="value"
               >
-                {pieData1.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS1[index]} />
+                {PIE_CHART_DATA_1.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS_1[index]} />
                 ))}
               </Pie>
             </PieChart>
@@ -44,14 +35,14 @@ const Piechart = () => {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={pieData2}
+                data={PIE_CHART_DATA_2}
                 innerRadius={60}
                 outerRadius={80}
                 paddingAngle={0}
                 dataKey="value"
               >
-                {pieData2.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS2[index]} />
+                {PIE_CHART_DATA_2.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS_2[index]} />
                 ))}
               </Pie>
             </PieChart>

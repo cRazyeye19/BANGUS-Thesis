@@ -7,12 +7,10 @@ import Avatar from "../../assets/images/profile.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRightFromBracket,
-  faFishFins,
-  faGears,
-  faMagnifyingGlass,
 } from "@fortawesome/free-solid-svg-icons";
 import { NavItemProps } from "../../types/dashboard";
 import NotificationsCenter from "../Notifications/Notifications";
+import { NAV_ITEMS } from "../../constants/dashboard";
 
 const NavItem = ({ to, icon, text, currentPath }: NavItemProps) => {
   const isActive = currentPath === to;
@@ -116,24 +114,15 @@ const Header = () => {
       <nav className="sticky top-16 z-40 bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-2 py-2 overflow-x-auto scrollbar-hide">
-            <NavItem
-              to="/dashboard"
-              icon={faMagnifyingGlass}
-              text="Water Quality Monitoring"
-              currentPath={location.pathname}
-            />
-            <NavItem
-              to="/fish-feeding"
-              icon={faFishFins}
-              text="Fish Feeding Automation"
-              currentPath={location.pathname}
-            />
-            <NavItem
-              to="/settings"
-              icon={faGears}
-              text="Settings"
-              currentPath={location.pathname}
-            />
+            {NAV_ITEMS.map((item) => (
+              <NavItem
+                key={item.to}
+                to={item.to}
+                icon={item.icon}
+                text={item.text}
+                currentPath={location.pathname}
+              />
+            ))}
           </div>
         </div>
       </nav>

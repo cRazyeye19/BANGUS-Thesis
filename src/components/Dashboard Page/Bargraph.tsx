@@ -8,12 +8,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const data = [
-  { name: "Page A", uv: 4000 },
-  { name: "Page B", uv: 3000 },
-  { name: "Page C", uv: 2000 },
-  { name: "Page D", uv: 2780 },
-];
+import { BAR_GRAPH_DATA } from "../../constants/dashboard";
+
+const data = BAR_GRAPH_DATA;
 
 const BarGraph = () => (
   <ResponsiveContainer width="100%" height="100%">

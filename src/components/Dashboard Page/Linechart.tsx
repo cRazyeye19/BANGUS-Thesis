@@ -18,6 +18,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { getAuth } from "firebase/auth";
+import { SENSOR_CONFIG, DEFAULT_SELECTED_SENSORS } from "../../constants/dashboard";
 
 interface SensorReading {
   timestamp: string | number;
@@ -30,15 +31,28 @@ interface SensorReading {
 }
 
 // Custom tooltip component for better data display
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipPayload {
+  name: string;
+  value: number;
+  color: string;
+  unit?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: number;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-4 border border-gray-200 shadow-md rounded-md">
         <p className="font-medium text-sm text-gray-700">
-          {new Date(label * 1000).toLocaleString()}
+          {new Date((label || 0) * 1000).toLocaleString()}
         </p>
         <div className="mt-2">
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <p
               key={`item-${index}`}
               className="text-sm"
@@ -59,9 +73,9 @@ const SensorChart = () => {
   const [chartData, setChartData] = useState<SensorReading[]>([]);
   const [timeRange, setTimeRange] = useState<string>("day");
   const [loading, setLoading] = useState<boolean>(true);
-  const [selectedSensors, setSelectedSensors] = useState<string[]>([
-    "temperature", "pH", "EC", "TDS", "turbidity"
-  ]);
+  const [selectedSensors, setSelectedSensors] = useState<string[]>(
+    DEFAULT_SELECTED_SENSORS
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -137,14 +151,6 @@ const SensorChart = () => {
 
   const filteredChartData = filterDataByTimeRange(chartData, timeRange);
 
-  // Sensor configuration with colors and units
-  const sensorConfig = {
-    temperature: { color: "#8884d8", name: "Temp (°C)", unit: "°C" },
-    pH: { color: "#82ca9d", name: "pH", unit: "" },
-    EC: { color: "#ffc658", name: "EC", unit: "µS/cm" },
-    TDS: { color: "#ff7300", name: "TDS", unit: "ppm" },
-    turbidity: { color: "#ff0000", name: "Turbidity", unit: "NTU" }
-  };
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-md">
@@ -152,7 +158,7 @@ const SensorChart = () => {
         <h2 className="app-header text-xl font-semibold mb-3 md:mb-0">Sensor Readings</h2>
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
           <div className="flex flex-wrap gap-2">
-            {Object.entries(sensorConfig).map(([key, config]) => (
+            {Object.entries(SENSOR_CONFIG).map(([key, config]) => (
               <button
                 key={key}
                 onClick={() => toggleSensor(key)}
@@ -161,7 +167,7 @@ const SensorChart = () => {
                     ? `bg-${config.color} text-white`
                     : "bg-gray-200 text-gray-600"
                 }`}
-                style={{ 
+                style={{
                   backgroundColor: selectedSensors.includes(key) ? config.color : "#e5e7eb",
                   color: selectedSensors.includes(key) ? "white" : "#4b5563"
                 }}
@@ -227,8 +233,8 @@ const SensorChart = () => {
               <Line
                 type="monotone"
                 dataKey="temperature"
-                stroke={sensorConfig.temperature.color}
-                name={sensorConfig.temperature.name}
+                stroke={SENSOR_CONFIG.temperature.color}
+                name={SENSOR_CONFIG.temperature.name}
                 dot={false}
                 activeDot={{ r: 6 }}
                 strokeWidth={2}
@@ -238,8 +244,8 @@ const SensorChart = () => {
               <Line
                 type="monotone"
                 dataKey="pH"
-                stroke={sensorConfig.pH.color}
-                name={sensorConfig.pH.name}
+                stroke={SENSOR_CONFIG.pH.color}
+                name={SENSOR_CONFIG.pH.name}
                 dot={false}
                 activeDot={{ r: 6 }}
                 strokeWidth={2}
@@ -249,8 +255,8 @@ const SensorChart = () => {
               <Line
                 type="monotone"
                 dataKey="EC"
-                stroke={sensorConfig.EC.color}
-                name={sensorConfig.EC.name}
+                stroke={SENSOR_CONFIG.EC.color}
+                name={SENSOR_CONFIG.EC.name}
                 dot={false}
                 activeDot={{ r: 6 }}
                 strokeWidth={2}
@@ -260,8 +266,8 @@ const SensorChart = () => {
               <Line
                 type="monotone"
                 dataKey="TDS"
-                stroke={sensorConfig.TDS.color}
-                name={sensorConfig.TDS.name}
+                stroke={SENSOR_CONFIG.TDS.color}
+                name={SENSOR_CONFIG.TDS.name}
                 dot={false}
                 activeDot={{ r: 6 }}
                 strokeWidth={2}
@@ -271,8 +277,8 @@ const SensorChart = () => {
               <Line
                 type="monotone"
                 dataKey="turbidity"
-                stroke={sensorConfig.turbidity.color}
-                name={sensorConfig.turbidity.name}
+                stroke={SENSOR_CONFIG.turbidity.color}
+                name={SENSOR_CONFIG.turbidity.name}
                 dot={false}
                 activeDot={{ r: 6 }}
                 strokeWidth={2}

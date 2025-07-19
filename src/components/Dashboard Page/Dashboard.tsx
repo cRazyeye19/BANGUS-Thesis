@@ -8,16 +8,11 @@ import { getAuth } from "firebase/auth";
 import type { SensorData } from "../../types/dashboard";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { DEFAULT_THRESHOLDS } from "../../constants/dashboard";
 
 const Dashboard = () => {
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
-  const [thresholds, setThresholds] = useState({
-    ph: { min: 6.5, max: 8.5 },
-    temperature: { min: 25, max: 32 },
-    turbidity: { min: 5, max: 25 },
-    ec: { min: 500, max: 1500 },
-    tds: { min: 250, max: 750 },
-  });
+  const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS);
 
   useEffect(() => {
     const uid = getAuth().currentUser?.uid;
@@ -26,7 +21,6 @@ const Dashboard = () => {
 
     const unsubscribe = onValue(bangusRef, (snapshot) => {
       const latestReading = snapshot.val();
-      console.log("Latest Reading:", latestReading);
       setSensorData(latestReading);
     });
 
@@ -35,25 +29,25 @@ const Dashboard = () => {
       const settings = snapshot.val();
       if (settings) {
         setThresholds({
-          ph: { 
-            min: Number(settings.ph?.Minimum) || 6.5, 
-            max: Number(settings.ph?.Maximum) || 8.5 
+          ph: {
+            min: Number(settings.ph?.Minimum) || DEFAULT_THRESHOLDS.ph.min,
+            max: Number(settings.ph?.Maximum) || DEFAULT_THRESHOLDS.ph.max
           },
-          temperature: { 
-            min: Number(settings.temperature?.Minimum) || 25, 
-            max: Number(settings.temperature?.Maximum) || 32 
+          temperature: {
+            min: Number(settings.temperature?.Minimum) || DEFAULT_THRESHOLDS.temperature.min,
+            max: Number(settings.temperature?.Maximum) || DEFAULT_THRESHOLDS.temperature.max
           },
-          turbidity: { 
-            min: Number(settings.turbidity?.Minimum) || 5, 
-            max: Number(settings.turbidity?.Maximum) || 25 
+          turbidity: {
+            min: Number(settings.turbidity?.Minimum) || DEFAULT_THRESHOLDS.turbidity.min,
+            max: Number(settings.turbidity?.Maximum) || DEFAULT_THRESHOLDS.turbidity.max
           },
-          ec: { 
-            min: Number(settings.ec?.Minimum) || 500, 
-            max: Number(settings.ec?.Maximum) || 1500 
+          ec: {
+            min: Number(settings.ec?.Minimum) || DEFAULT_THRESHOLDS.ec.min,
+            max: Number(settings.ec?.Maximum) || DEFAULT_THRESHOLDS.ec.max
           },
-          tds: { 
-            min: Number(settings.tds?.Minimum) || 250, 
-            max: Number(settings.tds?.Maximum) || 750 
+          tds: {
+            min: Number(settings.tds?.Minimum) || DEFAULT_THRESHOLDS.tds.min,
+            max: Number(settings.tds?.Maximum) || DEFAULT_THRESHOLDS.tds.max
           },
         });
       }

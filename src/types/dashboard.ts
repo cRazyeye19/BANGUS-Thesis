@@ -1,4 +1,4 @@
-import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 export interface StatCardProps {
   title: string;
@@ -46,7 +46,7 @@ export interface SensorReadings {
 
 export interface NavItemProps {
   to: string
-  icon: typeof faMagnifyingGlass
+  icon: IconDefinition
   text: string
   currentPath: string
 }
